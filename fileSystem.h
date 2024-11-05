@@ -55,7 +55,7 @@ void saveFileSystem();
 void loadFileSystem();
 
 // 创建文件函数（修改了块分配和iNode的大小最依据文件的实际需求）
-void createFile(char *path, char *permission);
+void createFile(char *path, int file_permission, char* content);
 
 // 删除文件函数
 void deleteFile(char *path, char *permission);

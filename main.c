@@ -35,7 +35,10 @@ int main() {
     char current_path[256] = "/";
     char last_path[256] = "/";
     int login = 0;
+    char file_permission_char[2];
+    
     if (flag == 0){
+        char content[BLOCK_SIZE * MAX_BLCK_NUMBER_PER_FILE];
         struct Inode *pointer = inodeMem; // 指向当前目录的i节点
         struct DirectoryBlock *block;
         block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
@@ -43,7 +46,34 @@ int main() {
         strcpy(block->fileName[0], ".");
         block->inodeID[1] = 0;
         strcpy(block->fileName[1], "..");
-        createFile("/pwd", "2");
+        char *path = "/pwd";
+        char password[256];
+        printf("Input the administrator's password:\n");
+        fgets(password, sizeof(password), stdin);
+        password[strcspn(password, "\n")] = '\0';
+        char *admin = "admin-";
+        strcpy(content, admin);
+        strcat(content, password);
+        strcat(content, "-2/");
+        strcpy(user.username, "admin");
+        strcpy(user.password, password);
+        strcpy(user.permission, "2");
+        int file_permission = 22;
+        while (strlen(content) == 0) {
+            printf("The content is empty!\n");
+            printf("Input the administrator's password:\n");
+            fgets(password, sizeof(password), stdin);
+            password[strcspn(password, "\n")] = '\0';
+            char *admin = "admin-";
+            strcpy(content, admin);
+            strcat(content, password);
+            strcat(content, "-2/");
+            strcpy(user.username, "admin");
+            strcpy(user.password, password);
+            strcpy(user.permission, "2");
+        }
+
+        createFile(path, file_permission, content);
         username = "admin";
 
     }else{
@@ -138,7 +168,31 @@ int main() {
         } else if (strcmp(cmd, "ls") == 0 ) {
             listFiles(full_path); 
         } else if (strcmp(cmd, "mkfile") == 0 ) {
-            createFile(full_path, user.permission);
+            char content[BLOCK_SIZE * MAX_BLCK_NUMBER_PER_FILE];
+            char password[256];
+            printf("Input the content:\n");
+            fgets(content, sizeof(content), stdin);
+            content[strcspn(content, "\n")] = '\0';  // 去掉行进符
+            int permission_int = atoi(user.permission);
+
+            char file_permission_char[3];
+            printf("Input the file permsission(文件权限11表示医生创建且只有医生可以访问，22表示管理员创建且只有管理员可以访问，21表示管理员创建且只有医生和管理员可以访问，10表示医生创建且只有患者和医生可以访问!):\n");
+            fgets(file_permission_char, sizeof(file_permission_char), stdin);
+            file_permission_char[strcspn(file_permission_char, "\n")] = '\0';
+            int file_permission = atoi(file_permission_char);
+            if(file_permission != 11 && file_permission != 22 && file_permission != 21 && file_permission != 10){
+                printf("文件权限输入错误！\n");
+                continue;
+            }else if(file_permission/10 != permission_int){
+                printf("文件权限输入错误！\n");
+                continue;
+            }
+            
+            if(permission_int == 0){
+                printf("You are patient, you can't create a file!\n");
+                continue;
+            }
+            createFile(full_path, file_permission, content);    
         } else if (strcmp(cmd, "rmfile") == 0 ) {
             deleteFile(full_path,user.permission); 
         } else if (strcmp(cmd, "read") == 0 ) {
@@ -192,7 +246,6 @@ int main() {
             strcat(newUserName, delimiter_2);
 
             strcat(content, newUserName);
-            printf("content: %s\n", content);
             writeFile("/pwd", content, user.permission);
 
         } else if (strcmp(cmd, "su") == 0  && strcmp(path, "")!=0) {

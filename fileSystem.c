@@ -2,6 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fileSystem.h"
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 
 // 创建互斥锁
@@ -337,67 +343,12 @@ void deleteDirectory(char *path, char *permission) {
 }
 
 // 创建文件函数（修改了块分配和iNode的大小最依据文件的实际需求）
-void createFile(char *path, char *permission) {
-    int permission_int = atoi(permission);
-    if(permission_int == 0){
-        printf("You are patient, you can't create a file!\n");
-        return;
-    }
-    
+void createFile(char *path, int file_permission, char* content) {
     int i, j, flag;
-    char content[BLOCK_SIZE * MAX_BLCK_NUMBER_PER_FILE];
     char *directory, *parent, *target;
     const char delimiter[2] = "/";
     struct Inode *pointer = inodeMem;
     struct DirectoryBlock *block;
-    char file_permission_char[3];
-    int file_permission;
-
-    if(strcmp(path,"/pwd") != 0){
-        printf("Input the content:\n");
-        fgets(content, sizeof(content), stdin);
-        content[strcspn(content, "\n")] = '\0';  // 去掉行进符
-    } 
-    else{
-        char password[256];
-        printf("Input the administrator's password:\n");
-        fgets(password, sizeof(password), stdin);
-        password[strcspn(password, "\n")] = '\0';
-        char *admin = "admin-";
-        strcpy(content, admin);
-        strcat(content, password);
-        strcat(content, "-2");
-        strcpy(user.username, "admin");
-        strcpy(user.password, password);
-        strcpy(user.permission, "2");
-    } 
-    
-
-    if(strcmp(path, "/pwd") == 0){
-        file_permission = 22;
-        if (strlen(content) == 0) {
-            printf("The content is empty!\n");
-            createFile(path, permission);
-            return;
-        }else{
-            char delimiter[2] = "/";
-            strcat(content, delimiter);
-        }
-    }else{
-        printf("Input the file permsission(文件权限11表示医生创建且只有医生可以访问，22表示管理员创建且只有管理员可以访问，21表示管理员创建且只有医生和管理员可以访问，10表示医生创建且只有患者和医生可以访问!):\n");
-        // printf("文件权限11表示医生创建且只有医生可以访问，22表示管理员创建且只有管理员可以访问，21表示管理员创建且只有医生和管理员可以访问，10表示医生创建且只有患者和医生可以访问!/n");
-        
-        fgets(file_permission_char, sizeof(file_permission_char), stdin);
-        file_permission_char[strcspn(file_permission_char, "\n")] = '\0';
-        file_permission = atoi(file_permission_char);
-        if(file_permission != 11 && file_permission != 22 && file_permission != 21 && file_permission != 10){
-            printf("文件权限输入错误！\n");
-            return;
-        }else if(file_permission/10 != permission_int){
-            printf("文件权限输入错误！\n");
-            return;
-        }
-    }
 
     // 递序访问父目录
     parent = NULL;
@@ -713,7 +664,7 @@ void writeFile(char *path, char *content, char *permission) {
     if(strcmp(path, "/pwd") == 0){
         if (strlen(content) == 0) {
             printf("The content is empty!\n");
-            createFile(path, permission);
+            // createFile(path, permission);
             return;
         }
         char content_temp[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];

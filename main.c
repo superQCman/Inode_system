@@ -170,7 +170,7 @@ int main() {
             char* printWord = deleteDirectory(full_path, user.permission);
             printf("%s\n", printWord);
         } else if (strcmp(cmd, "ls") == 0 ) {
-            listFiles(full_path); 
+            listFiles_main(full_path); 
         } else if (strcmp(cmd, "mkfile") == 0 ) {
             char content[BLOCK_SIZE * MAX_BLCK_NUMBER_PER_FILE];
             char password[256];

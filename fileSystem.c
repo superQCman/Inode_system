@@ -885,6 +885,48 @@ void listFiles(char *path, int clientSocket) {
     return ;
 }
 
+void listFiles_main(char *path) {
+    int i, flag;
+    // char path[100];
+    char *directory, *parent;
+    const char delimiter[2] = "/";
+    struct Inode *pointer = inodeMem;
+    struct DirectoryBlock *block;
+
+    // printf("Input the path:\n");
+    // scanf("%s", path);
+    printf("Server: The directory includes following files\n");
+    // sendMessage(clientSocket, "The directory includes following files\n");
+
+    directory = strtok(path, delimiter);
+    while (directory != NULL) {
+        block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+        flag = 0;
+        for (i = 0; i < ENTRY_NUMBER; i++) { 
+            if (strcmp(block->fileName[i], directory) == 0) {
+                flag = 1;
+                pointer = &inodeMem[block->inodeID[i]];
+                break;
+            }
+        }
+        if (flag == 0 || pointer->fileType == 1) {
+            // 如果父目录不存在或者不是目录文件
+            printf("Server: The path does not exist!\n");
+            return;
+        }
+        directory = strtok(NULL, delimiter); 
+    }
+
+    block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+    printf("INode\tisDir\tFile Name\n");
+    for (i = 0; i < ENTRY_NUMBER; i++) {
+        if (block->inodeID[i] != -1) {
+            printf("%d\t%d\t%s\n", block->inodeID[i], 1-inodeMem[block->inodeID[i]].fileType, block->fileName[i]);
+        }
+    }
+    return ;
+}
+
 char* moveDir(char *current_path, char *full_path, char *last_path, char *permission){
     strcpy(last_path, current_path);
     if (goToDirectory(full_path,permission) == 1){

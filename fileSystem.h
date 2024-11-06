@@ -78,6 +78,8 @@ char* createDirectory(char *path, char *permission);
 // 列出文件
 void listFiles(char *path, int clientSocket);
 
+void listFiles_main(char *path);
+
 // 进入目录
 _Bool goToDirectory(char *path_origin, char *permission);
 

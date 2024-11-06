@@ -263,6 +263,8 @@ void *userFunction(void* arg) {
             running = 0;
             char* loadWord = saveFileSystem();
             printf("%s\n", loadWord);
+        }else{
+            sendMessage(clientSocket, "Invalid command!\n");
         }
     }
 }

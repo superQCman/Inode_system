@@ -19,6 +19,7 @@ pthread_mutex_t bitmapLock = PTHREAD_MUTEX_INITIALIZER;
 void sendMessage(int clientSocket, const char* message) {
     // Send "OUTPUT" marker and the message to the client
     send(clientSocket, "OUTPUT", strlen("OUTPUT"), 0);
+    usleep(1000);
     char buffer[1024];
     recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
     send(clientSocket, message, strlen(message), 0);
@@ -337,6 +338,7 @@ char* deleteDirectory(char *path, char *permission) {
                     }
                     // 删除目录
                     block->inodeID[i] = -1;
+                    block->fileName[i][0] = '\0';
                     
                     {
                         pthread_mutex_lock(&bitmapLock);  // 加锁

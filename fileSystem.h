@@ -49,39 +49,43 @@ struct User user;  // 用户数组，存储所有用户的信息
 
 
 // 将文件系统信息保存到硬盘
-void saveFileSystem();
+char* saveFileSystem();
 
 // 从硬盘读取文件系统信息
-void loadFileSystem();
+char* loadFileSystem();
 
 // 创建文件函数（修改了块分配和iNode的大小最依据文件的实际需求）
-void createFile(char *path, int file_permission, char* content);
+char* createFile(char *path, int file_permission, char* content);
 
 // 删除文件函数
-void deleteFile(char *path, char *permission);
+char* deleteFile(char *path, char *permission);
 
 // 读取文件函数
-void readFile(char *path, char *content_back, char *permission);
+char* readFile(char *path, char *content_back, char *permission);
 
 // 写入文件函数
-void writeFile(char *path, char *content, char *permission);
+char* writeFile(char *path, char *content, char *permission);
 
 // 移动目录
-void moveDir(char *current_path, char *full_path, char *last_path, char *permission);
+char* moveDir(char *current_path, char *full_path, char *last_path, char *permission);
 
 // 删除目录
-void deleteDirectory(char *path, char *permission);
+char* deleteDirectory(char *path, char *permission);
 
 // 创建目录
-void createDirectory(char *path, char *permission);
+char* createDirectory(char *path, char *permission);
 
 // 列出文件
-void listFiles(char *path);
+void listFiles(char *path, int clientSocket);
 
 // 进入目录
 _Bool goToDirectory(char *path_origin, char *permission);
 
 
 int checkUser(char *input_username, char *input_password, char *current_path, char *last_path);
+
+void sendMessage(int clientSocket, const char* message);
+
+void receiveInput(int clientSocket, char* buffer, size_t size);
 
 #endif

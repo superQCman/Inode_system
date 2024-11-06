@@ -23,7 +23,8 @@ int main() {
     for (i = 0; i < ENTRY_NUMBER; i++) {
         root->inodeID[i] = -1;
     }
-    loadFileSystem();
+    char* loadWord = loadFileSystem();
+    printf("%s\n", loadWord);
     int flag = 0;
     for (i = 0; i < ENTRY_NUMBER; i++) {
         if(strcmp(root->fileName[i], "pwd") == 0){
@@ -73,7 +74,8 @@ int main() {
             strcpy(user.permission, "2");
         }
 
-        createFile(path, file_permission, content);
+        char* printWord = createFile(path, file_permission, content);
+        printf("%s\n", printWord);
         username = "admin";
 
     }else{
@@ -101,7 +103,7 @@ int main() {
         }
     }
     int running = 1;
-    char command[256] = {'\0'};
+    char command[1024] = {'\0'};
     char *cmd, *path;
     
 
@@ -162,9 +164,11 @@ int main() {
         }
 
         if (strcmp(cmd, "mkdir") == 0 ) {
-            createDirectory(full_path, user.permission);
+            char* printWord = createDirectory(full_path, user.permission);
+            printf("%s\n", printWord);
         } else if (strcmp(cmd, "rmdir") == 0) {
-            deleteDirectory(full_path, user.permission);
+            char* printWord = deleteDirectory(full_path, user.permission);
+            printf("%s\n", printWord);
         } else if (strcmp(cmd, "ls") == 0 ) {
             listFiles(full_path); 
         } else if (strcmp(cmd, "mkfile") == 0 ) {
@@ -192,30 +196,41 @@ int main() {
                 printf("You are patient, you can't create a file!\n");
                 continue;
             }
-            createFile(full_path, file_permission, content);    
+            char* printWord =  createFile(full_path, file_permission, content);  
+            printf("%s\n", printWord);  
         } else if (strcmp(cmd, "rmfile") == 0 ) {
-            deleteFile(full_path,user.permission); 
+            char* printWord =  deleteFile(full_path,user.permission); 
+            printf("%s\n", printWord);
         } else if (strcmp(cmd, "read") == 0 ) {
             char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
-            readFile(full_path,content,user.permission); 
+            char* printWord =  readFile(full_path,content,user.permission); 
             if(strcmp(content,"")!=0)printf("File content: %s\n", content);
+            else printf("%s\n", printWord);
         } else if (strcmp(cmd, "write") == 0 ) {
             char read_content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
             char content[BLOCK_SIZE * MAX_BLCK_NUMBER_PER_FILE];
             char temp_path[256];
             strcpy(temp_path, full_path);
-            readFile(temp_path, read_content, user.permission);
+            char* printWord =  readFile(temp_path, read_content, user.permission);
+            if (strcmp(read_content, "") == 0) {
+                printf("%s\n", printWord);
+            }
             printf("File content: %s\n", read_content);
             printf("Input the new content:\n");
             fgets(content, sizeof(content), stdin);
             content[strcspn(content, "\n")] = '\0';
-            writeFile(full_path, content, user.permission); 
+            printWord =  writeFile(full_path, content, user.permission); 
+            printf("%s\n", printWord);
         } else if (strcmp(cmd, "cd") == 0) {
             if (strcmp(path, "-") == 0) {
                 char temp[256];
                 strcpy(temp, last_path);
-                moveDir(current_path, temp, last_path, user.permission);
-            }else moveDir(current_path, full_path, last_path, user.permission);
+                char* printWord =  moveDir(current_path, temp, last_path, user.permission);
+                printf("%s\n", printWord);
+            }else{
+                char* printWord =   moveDir(current_path, full_path, last_path, user.permission);
+                printf("%s\n", printWord);
+            } 
         } else if (strcmp(cmd, "createUser") == 0 ) {
             if (strcmp(user.permission, "2") != 0){
                 printf("You don't have permission to create a new user!\n");
@@ -246,7 +261,8 @@ int main() {
             strcat(newUserName, delimiter_2);
 
             strcat(content, newUserName);
-            writeFile("/pwd", content, user.permission);
+            char* printWord =   writeFile("/pwd", content, user.permission);
+            printf("%s\n", printWord);
 
         } else if (strcmp(cmd, "su") == 0  && strcmp(path, "")!=0) {
             printf("Input the password:\n");
@@ -264,6 +280,7 @@ int main() {
             printf("Please input a valid command\n");
         }
     }
-    saveFileSystem();
+    loadWord = saveFileSystem();
+    printf("%s\n", loadWord);
     return 0;
 }

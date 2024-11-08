@@ -14,10 +14,15 @@ int main() {
             inodeMem[i].blockID[j] = -1;
         }
         inodeMem[i].blockNum = 0;
+        inodeMem[i].fileType = -1;
+        inodeMem[i].permission = -1;
+        inodeMem[i].fileNum = 0;
     }
     inodeMem[0].blockID[0] = 0;
     inodeMem[0].fileType = 0;
     inodeMem[0].blockNum = 1;
+    inodeMem[0].permission = 2;
+    inodeMem[0].fileNum = 1;
     blockBitmap[0] |= 1;
     struct DirectoryBlock *root = (struct DirectoryBlock *) &blockMem[0];
     for (i = 0; i < ENTRY_NUMBER; i++) {
@@ -179,16 +184,19 @@ int main() {
             content[strcspn(content, "\n")] = '\0';  // 去掉行进符
             int permission_int = atoi(user.permission);
 
-            char file_permission_char[3];
-            printf("Input the file permsission(文件权限11表示医生创建且只有医生可以访问，22表示管理员创建且只有管理员可以访问，21表示管理员创建且只有医生和管理员可以访问，10表示医生创建且只有患者和医生可以访问!):\n");
+            char file_permission_char[64];
+            printf("Input the file permsission(文件权限11n表示医生创建且只有第n组医生（n == 0代表所有组的医生都可以访问）可以访问，22表示管理员创建且只有管理员可以访问，21n表示管理员创建且只有第n组医生和管理员可以访问，13n表示医生创建且只有患者和医生可以访问（只有第n组的医生患者可以访问）!):\n");
             fgets(file_permission_char, sizeof(file_permission_char), stdin);
             file_permission_char[strcspn(file_permission_char, "\n")] = '\0';
             int file_permission = atoi(file_permission_char);
-            if(file_permission != 11 && file_permission != 22 && file_permission != 21 && file_permission != 10){
+            if(file_permission/10 != 11 && file_permission != 22 && file_permission/10 != 21 && file_permission/10 != 13){
                 printf("文件权限输入错误！\n");
+                printf("file_permission: %d\n",file_permission);
                 continue;
-            }else if(file_permission/10 != permission_int){
+            }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) ){
                 printf("文件权限输入错误！\n");
+                printf("file_permission: %d\n",file_permission);
+                printf("permission_int: %d\n",permission_int);
                 continue;
             }
             
@@ -222,6 +230,10 @@ int main() {
             printWord =  writeFile(full_path, content, user.permission); 
             printf("%s\n", printWord);
         } else if (strcmp(cmd, "cd") == 0) {
+            if(path == NULL) {
+                printf("Invalid command!\n");
+                continue;
+            }
             if (strcmp(path, "-") == 0) {
                 char temp[256];
                 strcpy(temp, last_path);
@@ -243,12 +255,18 @@ int main() {
             fgets(newUserName, sizeof(newUserName), stdin);
             newUserName[strcspn(newUserName, "\n")] = '\0';
 
+            while(checkUserName(newUserName) == 1){
+                printf("The username already exists, please input another username!\n");
+                printf("Input the new username:");
+                fgets(newUserName, sizeof(newUserName), stdin);
+                newUserName[strcspn(newUserName, "\n")] = '\0';
+            }
             printf("Input the new password:");
             fgets(newPassword, sizeof(newPassword), stdin);
             newPassword[strcspn(newPassword, "\n")] = '\0';
 
-            printf("permission: \nIf you are patient, please input 0, if you are doctor, please input 1, if you are administrators, please input 2\n");
-            char permission[2];
+            printf("permission: \nIf you are patient, please input 3n(n is your group), if you are doctor, please input 1n(n is your group), if you are administrators, please input 2\n");
+            char permission[3];
             fgets(permission, sizeof(permission), stdin);
             permission[strcspn(permission, "\n")] = '\0';
 
@@ -274,7 +292,14 @@ int main() {
             }else{
                 printf("change user failed!\n");
             }
-        } else if (strcmp(cmd, "quit") == 0) {
+        } else if (strcmp(cmd, "ln") == 0 && strcmp(path, "")!=0) {
+            printf("Input the path of the file you want to link:\n");
+            char link_path[256];
+            fgets(link_path, sizeof(link_path), stdin);
+            link_path[strcspn(link_path, "\n")] = '\0';
+            char* printWord =  linkPath( full_path, link_path, user.permission);
+            printf("%s\n", printWord);
+        }else if (strcmp(cmd, "quit") == 0) {
             running = 0;
         } else {
             printf("Please input a valid command\n");

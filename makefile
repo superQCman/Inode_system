@@ -37,7 +37,7 @@ clean:
 	rm -rf bin obj
 
 run_server:
-	./bin/fileSystem
+	./bin/server
 
 run_client:
 	./bin/client
@@ -46,11 +46,14 @@ run_main:
 	./bin/main
 
 gdb:
-	gdb ./bin/fileSystem
+	gdb ./bin/server
 
 gdb_client:
 	gdb ./bin/client
 
 gdb_server:
 	gdb ./bin/server
+
+gdb_main:
+	gdb ./bin/main
 

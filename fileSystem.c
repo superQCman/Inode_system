@@ -140,7 +140,7 @@ _Bool goToDirectory(char *path_origin, char *permission) {
 // 创建目录函数
 char* createDirectory(char *path, char *permission) {
     int permission_int = atoi(permission);
-    if (permission_int == 0){
+    if (permission_int/10 == 3 && permission_int != 2){
         // printf("You are patient, you can't create a directory!\n");
         
         return "You are patient, you can't create a directory!\n";
@@ -229,6 +229,7 @@ char* createDirectory(char *path, char *permission) {
                     inodeMem[i].fileType = 0;
                     inodeMem[i].blockNum = 1;
                     inodeMem[i].permission = permission_int;
+                    inodeMem[i].fileNum++;
                     n_inode = i;
                     pthread_mutex_unlock(&inodeLock);  // 解锁
                     break;
@@ -271,10 +272,136 @@ char* createDirectory(char *path, char *permission) {
     }
 }
 
+// 链接目录函数
+char* linkPath(char *path, char *path_origin, char *permission) {
+    int permission_int = atoi(permission);
+    if (permission_int/10 == 3 && permission_int != 2){
+        return "You are patient, you can't link a directory!\n";
+    }
+    int i, j, flag;
+    char *directory, *parent, *target, *directory_origin, *parent_origin;
+    const char delimiter[2] = "/"; // 分隔符
+    struct Inode *pointer = inodeMem; // 指向当前目录的i节点
+    struct Inode *pointer_origin = inodeMem; 
+    struct DirectoryBlock *block, *block_origin;
+    char *saveptr1, *saveptr2;
+
+    // 递归访问父目录
+    parent = NULL;
+    parent_origin = NULL;
+    directory = strtok_r(path, delimiter, &saveptr1);
+    directory_origin = strtok_r(path_origin, delimiter, &saveptr2);
+    if (directory == NULL) {
+        // printf("It is the root directory!\n");
+        
+        return "It is the root directory!\n";
+    }
+    // 找到链接父目录
+    while (directory != NULL) { // 逐级访问目录
+        if (parent != NULL) { // 除了根目录外，逐级访问目录
+            block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]]; // 由于 blockMem 是一个 FileBlock 数组，直接访问时无法以 DirectoryBlock 方式来处理。但是在文件系统中，目录块和文件块都存储在相同的 blockMem 数组中。此时pointer指向当前目录的i节点
+            flag = 0;
+            for (i = 0; i < ENTRY_NUMBER; i++) { 
+                if (strcmp(block->fileName[i], parent) == 0) { // 查找父目录
+                    flag = 1;
+                    pointer = &inodeMem[block->inodeID[i]]; // 更新当前目录的i节点
+                    break;
+                }
+            }
+            if (flag == 0 || pointer->fileType == 1) {
+                // 如果父目录不存在或者不是目录文件
+                // printf("The path does not exist!\n");
+                return "The path does not exist!\n";
+            }
+        }
+        parent = directory;
+        directory = strtok_r(NULL, delimiter, &saveptr1);
+    }
+
+    while(directory_origin != NULL){
+        if (parent_origin != NULL) { // 除了根目录外，逐级访问目录
+            block_origin = (struct DirectoryBlock *) &blockMem[pointer_origin->blockID[0]]; // 由于 blockMem 是一个 FileBlock 数组，直接访问时无法以 DirectoryBlock 方式来处理。但是在文件系统中，目录块和文件块都存储在相同的 blockMem 数组中。此时pointer指向当前目录的i节点
+            flag = 0;
+            for (i = 0; i < ENTRY_NUMBER; i++) { 
+                if (strcmp(block_origin->fileName[i], parent_origin) == 0) { // 查找父目录
+                    flag = 1;
+                    pointer_origin = &inodeMem[block_origin->inodeID[i]]; // 更新当前目录的i节点
+                    break;
+                }
+            }
+            if (flag == 0 || pointer_origin->fileType == 1) {
+                // 如果父目录不存在或者不是目录文件
+                // printf("The path does not exist!\n");
+                return "The path does not exist!\n";
+            }
+        }
+        parent_origin = directory_origin;
+        directory_origin = strtok_r(NULL, delimiter, &saveptr2);
+    }
+
+    block_origin = (struct DirectoryBlock *) &blockMem[pointer_origin->blockID[0]];
+    int n_inode =-1;
+    int flag_origin = 0;
+    for (i = 0; i < ENTRY_NUMBER; i++) {
+        if (strcmp(block_origin->fileName[i], parent_origin) == 0) {
+            flag_origin = 1;
+            int n_inode_origin = block_origin->inodeID[i];
+            int entry = -1;
+            target = parent;
+            block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]]; //由于 blockMem 是一个 FileBlock 数组，直接访问时无法以 DirectoryBlock 方式来处理。但是在文件系统中，目录块和文件块都存储在相同的 blockMem 数组中。
+            for (int k = 0; k < ENTRY_NUMBER; k++) {
+                if (strcmp(block->fileName[k], target) == 0) {
+                    n_inode = block->inodeID[k];
+                    int blockNum = inodeMem[n_inode].blockNum;
+                    // 检查目录是否为空
+                    struct DirectoryBlock *target_block = (struct DirectoryBlock*) &blockMem[inodeMem[n_inode].blockID[0]];
+                    for(int z = 2; z < ENTRY_NUMBER && inodeMem[n_inode].fileType == 0; z++){
+                        if (target_block->inodeID[z] != -1) {
+                            return "The directory is not empty!\n";
+                        }
+                    }
+                    for(j = 0; j < blockNum; j++){
+                        {
+                            pthread_mutex_lock(&bitmapLock);  // 加锁
+                            blockBitmap[inodeMem[n_inode].blockID[j] / 8] &= ~(1 << (inodeMem[n_inode].blockID[j] % 8)); 
+                            pthread_mutex_unlock(&bitmapLock);  // 解锁
+                        }
+
+                        {
+                            pthread_mutex_lock(&inodeLock);  // 加锁
+                            inodeMem[n_inode].blockID[j] = -1;
+                            inodeMem[n_inode].fileType = -1;
+                            inodeMem[n_inode].blockNum = 0;
+                            inodeMem[n_inode].permission = -1;
+                            inodeMem[n_inode].fileNum = 0;
+                            inodeMem[n_inode_origin].fileNum++;
+                            pthread_mutex_unlock(&inodeLock);  // 解锁
+                        }
+                    }
+                    // printf("The directory already exists!\n");
+                    entry = k;
+                    break;
+                }
+            }
+            if(entry>=0){
+                block->inodeID[entry] = n_inode_origin;
+                break;
+            }else{
+                return "The path does not exist!\n";
+            }
+        }
+    }
+    if(flag_origin == 0){
+        return "The path does not exist!\n";
+    }else{
+        return "Path linked successfully!\n";
+    }
+}
+
 // 删除目录函数
 char* deleteDirectory(char *path, char *permission) {
     int permission_int = atoi(permission);
-    if(permission_int == 0){
+    if(permission_int/10 == 3 && permission_int != 2){
         // printf("You are patient, you can't delete a directory!\n");
         
         return "You are patient, you can't delete a directory!\n";
@@ -321,37 +448,48 @@ char* deleteDirectory(char *path, char *permission) {
         for (i = 0; i < ENTRY_NUMBER; i++) {
             if (strcmp(block->fileName[i], parent) == 0) {
                 int n_inode = block->inodeID[i];
-                if (inodeMem[n_inode].permission == 2 && permission_int == 1) { // 管理员创建的目录只有管理员可以删除
+                if (inodeMem[n_inode].permission == 2 && permission_int != 2) { // 管理员创建的目录只有管理员可以删除
                     // printf("You don't have permission to delete the directory!\n");
+                    pthread_mutex_unlock(&blockLock);  // 解锁
+                    return "You are not administrator. You don't have permission to delete the directory!\n";
+                }else if(inodeMem[n_inode].permission != permission_int && inodeMem[n_inode].permission != 2){
                     pthread_mutex_unlock(&blockLock);  // 解锁
                     return "You don't have permission to delete the directory!\n";
                 }
                 if (inodeMem[n_inode].fileType == 0) { // 检查是否为目录文件
                     struct DirectoryBlock *targetBlock = (struct DirectoryBlock *) &blockMem[inodeMem[n_inode].blockID[0]];
-                    // 检查目录是否为空
-                    for (int j = 2; j < ENTRY_NUMBER; j++) {
-                        if (targetBlock->inodeID[j] != -1) {
-                            // printf("The directory is not empty!\n");
-                            pthread_mutex_unlock(&blockLock);  // 解锁
-                            return "The directory is not empty!\n";
+                    if(inodeMem[n_inode].fileNum == 1){
+                        // 检查目录是否为空
+                        for (int j = 2; j < ENTRY_NUMBER; j++) {
+                            if (targetBlock->inodeID[j] != -1) {
+                                // printf("The directory is not empty!\n");
+                                pthread_mutex_unlock(&blockLock);  // 解锁
+                                return "The directory is not empty!\n";
+                            }
                         }
-                    }
-                    // 删除目录
-                    block->inodeID[i] = -1;
-                    block->fileName[i][0] = '\0';
-                    
-                    {
-                        pthread_mutex_lock(&bitmapLock);  // 加锁
-                        blockBitmap[inodeMem[n_inode].blockID[0] / 8] &= ~(1 << (inodeMem[n_inode].blockID[0] % 8)); 
-                        pthread_mutex_unlock(&bitmapLock);  // 解锁
-                    }
+                        // 删除目录
+                        block->inodeID[i] = -1;
+                        block->fileName[i][0] = '\0';
+                        {
+                            pthread_mutex_lock(&bitmapLock);  // 加锁
+                            blockBitmap[inodeMem[n_inode].blockID[0] / 8] &= ~(1 << (inodeMem[n_inode].blockID[0] % 8)); 
+                            pthread_mutex_unlock(&bitmapLock);  // 解锋
+                        }
 
-                    {
-                        pthread_mutex_lock(&inodeLock);  // 加锁
-                        inodeMem[n_inode].blockID[0] = -1;
-                        inodeMem[n_inode].fileType = -1;
-                        inodeMem[n_inode].blockNum = 0;
-                        pthread_mutex_unlock(&inodeLock);  // 解锁
+                        {
+                            pthread_mutex_lock(&inodeLock);  // 加锁
+                            inodeMem[n_inode].blockID[0] = -1;
+                            inodeMem[n_inode].fileType = -1;
+                            inodeMem[n_inode].blockNum = 0;
+                            inodeMem[n_inode].permission = -1;
+                            inodeMem[n_inode].fileNum = 0;
+                            pthread_mutex_unlock(&inodeLock);  // 解锁
+                        }
+                    }else{
+                        // 删除目录
+                        block->inodeID[i] = -1;
+                        block->fileName[i][0] = '\0';
+                        inodeMem[n_inode].fileNum--;
                     }
                     // printf("Directory deleted successfully!\n");
                     pthread_mutex_unlock(&blockLock);  // 解锁
@@ -465,6 +603,7 @@ char* createFile(char *path, int file_permission, char* content) {
                         inodeMem[i].fileType = 1;
                         inodeMem[i].blockNum = block_num;
                         inodeMem[i].permission = file_permission;
+                        inodeMem[i].fileNum++;
                         n_inode = i;
                         pthread_mutex_unlock(&inodeLock);  // 解锁
                         break;
@@ -504,7 +643,7 @@ char* createFile(char *path, int file_permission, char* content) {
 // 删除文件函数
 char* deleteFile(char *path, char *permission) {
     int permission_int = atoi(permission);
-    if(permission_int == 0){
+    if(permission_int/10 == 3 && permission_int != 2){
         // printf("You are patient, you can't delete a file!\n");
         return "You are patient, you can't delete a file!\n";
     }
@@ -549,13 +688,13 @@ char* deleteFile(char *path, char *permission) {
         for (i = 0; i < ENTRY_NUMBER; i++) {
             if (strcmp(block->fileName[i], parent) == 0) {
                 int n_inode = block->inodeID[i];
-                if (inodeMem[n_inode].permission == 2 && permission_int == 1) {
+                if (inodeMem[n_inode].permission/100 == 2 && permission_int/10 == 1) {
                     // printf("You don't have permission to delete the file!\n");
                     pthread_mutex_unlock(&blockLock);  // 解锁
                     return "You don't have permission to delete the file!\n";
                 }
                 if (inodeMem[n_inode].fileType == 1) {
-                    if (permission_int != inodeMem[n_inode].permission/10){
+                    if (permission_int/10 != inodeMem[n_inode].permission/100 || permission_int%10 != inodeMem[n_inode].permission%10){
                         // printf("You don't have permission to delete the file!\n");
                         pthread_mutex_unlock(&blockLock);  // 解锁
                         return "You don't have permission to delete the file!\n";
@@ -563,21 +702,24 @@ char* deleteFile(char *path, char *permission) {
                     // 删除文件
                     block->inodeID[i] = -1;
                     block->fileName[i][0] = '\0';
-                    for(int j = 0; j<MAX_BLCK_NUMBER_PER_FILE; j++){ //修改
+                    int blockNum = inodeMem[n_inode].blockNum;
+                    for(int j = 0; j<blockNum; j++){ //修改
+                        if(inodeMem[n_inode].fileNum == 1){
+                            {
+                                pthread_mutex_lock(&bitmapLock);  // 加锁
+                                blockBitmap[inodeMem[n_inode].blockID[j] / 8] &= ~(1 << (inodeMem[n_inode].blockID[j] % 8)); 
+                                pthread_mutex_unlock(&bitmapLock);  // 解锋
+                            }
 
-                        {
-                            pthread_mutex_lock(&bitmapLock);  // 加锁
-                            blockBitmap[inodeMem[n_inode].blockID[j] / 8] &= ~(1 << (inodeMem[n_inode].blockID[j] % 8));
-                            pthread_mutex_unlock(&bitmapLock);  // 解锁
-                        }
-
-                        {
-                            pthread_mutex_lock(&inodeLock);  // 加锁
-                            inodeMem[n_inode].blockID[j] = -1;
-                            inodeMem[n_inode].fileType = -1;
-                            inodeMem[n_inode].blockNum = 0;
-
-                            pthread_mutex_unlock(&inodeLock);  // 解锁
+                            {
+                                pthread_mutex_lock(&inodeLock);  // 加锁
+                                inodeMem[n_inode].blockID[j] = -1;
+                                inodeMem[n_inode].fileType = -1;
+                                inodeMem[n_inode].blockNum = 0;
+                                pthread_mutex_unlock(&inodeLock);  // 解锁
+                            }
+                        }else{
+                            inodeMem[n_inode].fileNum--;
                         }
                     }
                     
@@ -644,7 +786,7 @@ char* readFile(char *path, char *content_back, char *permission) {
         if (strcmp(block->fileName[i], parent) == 0) {
             int n_inode = block->inodeID[i];
             if (inodeMem[n_inode].fileType == 1) {
-                if (!(permission_int == inodeMem[n_inode].permission/10 || permission_int == inodeMem[n_inode].permission%10)){
+                if ((permission_int/10 != inodeMem[n_inode].permission/100 && (inodeMem[n_inode].permission/10)%10 != permission_int/10  || inodeMem[n_inode].permission%10 != permission_int%10 && inodeMem[n_inode].permission%10 != 0) && permission_int != inodeMem[n_inode].permission/100){
                     // printf("permission_int: %d\n", permission_int);
                     // printf("inodeMem[n_inode].permission: %d\n", inodeMem[n_inode].permission);
                     // printf("You don't have permission to read the file!\n");
@@ -678,7 +820,7 @@ char* readFile(char *path, char *content_back, char *permission) {
 // 写入文件函数（动态增加或减少块数量）
 char* writeFile(char *path, char *content, char *permission) {
     int permission_int = atoi(permission);
-    if(permission_int == 0){
+    if(permission_int/10 == 3 && permission_int != 2){
         // printf("You are patient, you can't write a file!\n");
         return "You are patient, you can't write a file!\n";
     }
@@ -715,7 +857,7 @@ char* writeFile(char *path, char *content, char *permission) {
             char full_path[256] = "/home/";
             strcat(full_path, username);
 
-            if (strcmp(full_path, "/home/root") != 0) {
+            if (strcmp(full_path, "/home/admin") != 0) {
                 createDirectory(home, permission);
                 createDirectory(full_path, permission);
             }
@@ -975,3 +1117,45 @@ int checkUser(char *input_username, char *input_password, char *current_path, ch
         return 1;
     }
 }
+
+int checkUserName(char *input_username){
+    char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
+    readFile("/pwd",content,"2");
+    char *username, *password, *permission;
+    char *saveptr1, *saveptr2;
+    int login = 0;
+    char *USER = strtok_r(content, "/", &saveptr1);
+    while(USER != NULL && login == 0){
+        username = strtok_r(USER, "-", &saveptr2);
+        password = strtok_r(NULL, "-", &saveptr2);
+        permission = strtok_r(NULL, "-", &saveptr2);
+        
+        if(strcmp(username, input_username) == 0){
+            login = 1;
+        }
+        USER = strtok_r(NULL, "/", &saveptr1);
+    }
+    return login;
+}
+
+// int getUserPermission(char *input_username){
+//     char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
+//     readFile("/pwd",content,"2");
+//     char *username, *password, *permission;
+//     int permission_int = 0;
+//     char *saveptr1, *saveptr2;
+//     int login = 0;
+//     char *USER = strtok_r(content, "/", &saveptr1);
+//     while(USER != NULL && login == 0){
+//         username = strtok_r(USER, "-", &saveptr2);
+//         password = strtok_r(NULL, "-", &saveptr2);
+//         permission = strtok_r(NULL, "-", &saveptr2);
+        
+//         if(strcmp(username, input_username) == 0){
+//             login = 1;
+//             permission_int = atoi(permission);
+//         }
+//         USER = strtok_r(NULL, "/", &saveptr1);
+//     }
+//     return permission_int;
+// }

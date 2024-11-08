@@ -19,7 +19,8 @@ struct Inode {
     int blockID[MAX_BLCK_NUMBER_PER_FILE];  // 所属块编号
     int fileType;  // 文件类型：0 表示目录，1 表示普通文件
     int blockNum;
-    int permission; // 权限(标识谁（身份）创建的文件, 0表示患者，1表示医生，2表示管理员, 文件权限11表示医生创建且只有医生可以访问，22表示管理员创建且只有管理员可以访问，212表示管理员创建且只有医生和管理员可以访问，101表示医生创建且只有患者和医生可以访问,只有管理员可以修改文件或目录权限)
+    int permission; // 权限
+    int fileNum; // 文件数
 };
 
 // 目录块结构体
@@ -89,5 +90,9 @@ int checkUser(char *input_username, char *input_password, char *current_path, ch
 void sendMessage(int clientSocket, const char* message);
 
 void receiveInput(int clientSocket, char* buffer, size_t size);
+
+int checkUserName(char *input_username);
+
+char* linkPath(char *path, char *path_origin, char *permission);
 
 #endif

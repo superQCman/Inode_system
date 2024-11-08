@@ -36,7 +36,7 @@ void *userFunction(void* arg) {
     char current_path[256] = "/";
     char last_path[256] = "/";
     int login = 0;
-    char file_permission_char[2];
+    char file_permission_char[64];
 
     if (flag == 0) {
         char content[BLOCK_SIZE * MAX_BLCK_NUMBER_PER_FILE];
@@ -171,15 +171,22 @@ void *userFunction(void* arg) {
             sendMessage(clientSocket, "Input the content:\n");
             receiveInput(clientSocket, content, sizeof(content));
 
-            sendMessage(clientSocket, "Input the file permission (文件权限11表示医生创建且只有医生可以访问，22表示管理员创建且只有管理员可以访问，21表示管理员创建且只有医生和管理员可以访问，10表示医生创建且只有患者和医生可以访问!):\n");
+            sendMessage(clientSocket, "Input the file permission (文件权限11n表示医生创建且只有第n组医生（n == 0代表所有组的医生都可以访问）可以访问，22表示管理员创建且只有管理员可以访问，21n表示管理员创建且只有第n组医生和管理员可以访问，13n表示医生创建且只有患者和医生可以访问（只有第n组的医生患者可以访问）!):\n");
             receiveInput(clientSocket, file_permission_char, sizeof(file_permission_char));
             int file_permission = atoi(file_permission_char);
             if(permission_int == 0){
                 sendMessage(clientSocket, "You are patient, you can't create a file!\n");
                 continue;
             }
-            if ((file_permission != 11 && file_permission != 22 && file_permission != 21 && file_permission != 10) || (file_permission/10 != permission_int)) {
+            if (file_permission/10 != 11 && file_permission != 22 && file_permission/10 != 21 && file_permission/10 != 13) {
                 sendMessage(clientSocket, "Invalid file permission!\n");
+                printf("file_permission: %d\n",file_permission);
+                continue;
+            }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) ){
+                sendMessage(clientSocket, "Invalid file permission!\n");
+                printf("file_permission: %d\n",file_permission);
+                printf("permission_int: %d\n",permission_int);
+                continue;
             } else {
                 char* printWord = createFile(full_path, file_permission, content);
                 sendMessage(clientSocket, printWord);
@@ -213,6 +220,10 @@ void *userFunction(void* arg) {
             char* writeStatus = writeFile(full_path, current_content, user.permission);
             sendMessage(clientSocket, writeStatus);
         } else if (strcmp(cmd, "cd") == 0) {
+            if (path == NULL){
+                sendMessage(clientSocket, "Invalid command!\n");
+                continue;
+            }
             if (strcmp(path, "-") == 0) {
                 char temp[256];
                 strcpy(temp, last_path);
@@ -229,14 +240,18 @@ void *userFunction(void* arg) {
                 char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
                 readFile("/pwd", content, "2");
 
-                char newUserName[256], newPassword[256], permission[2];
+                char newUserName[256], newPassword[256], permission[3];
                 sendMessage(clientSocket, "Input the new username:");
                 receiveInput(clientSocket, newUserName, sizeof(newUserName));
 
+                while(checkUserName(newUserName) == 1){
+                    sendMessage(clientSocket, "The username already exists, please input another username:");
+                    receiveInput(clientSocket, newUserName, sizeof(newUserName));
+                }
                 sendMessage(clientSocket, "Input the new password:");
                 receiveInput(clientSocket, newPassword, sizeof(newPassword));
 
-                sendMessage(clientSocket, "Permission (0=patient, 1=doctor, 2=admin):");
+                sendMessage(clientSocket, "permission: \nIf you are patient, please input 3n(n is your group), if you are doctor, please input 1n(n is your group), if you are administrators, please input 2\n");
                 receiveInput(clientSocket, permission, sizeof(permission));
 
                 strcat(content, newUserName);
@@ -259,7 +274,13 @@ void *userFunction(void* arg) {
             } else {
                 sendMessage(clientSocket, "Failed to change user!\n");
             }
-        } else if (strcmp(cmd, "quit") == 0) {
+        } else if (strcmp(cmd, "ln") == 0 && strcmp(path, "")!=0) {
+            sendMessage(clientSocket, "Input the path of the file you want to link:\n");
+            char link_path[256];
+            receiveInput(clientSocket, link_path, sizeof(link_path));
+            char* printWord = linkPath(full_path, link_path, user.permission);
+            sendMessage(clientSocket, printWord);
+        }else if (strcmp(cmd, "quit") == 0) {
             running = 0;
             char* loadWord = saveFileSystem();
             printf("%s\n", loadWord);
@@ -281,10 +302,15 @@ int main() {
             inodeMem[i].blockID[j] = -1;
         }
         inodeMem[i].blockNum = 0;
+        inodeMem[i].fileType = -1;
+        inodeMem[i].permission = -1;
+        inodeMem[i].fileNum = 0;
     }
     inodeMem[0].blockID[0] = 0;
     inodeMem[0].fileType = 0;
     inodeMem[0].blockNum = 1;
+    inodeMem[0].permission = 2;
+    inodeMem[0].fileNum = 1;
     blockBitmap[0] |= 1;
     struct DirectoryBlock *root = (struct DirectoryBlock *) &blockMem[0];
     for (i = 0; i < ENTRY_NUMBER; i++) {

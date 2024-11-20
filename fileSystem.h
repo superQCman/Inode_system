@@ -95,4 +95,12 @@ int checkUserName(char *input_username);
 
 char* linkPath(char *path, char *path_origin, char *permission);
 
+void checkDoctor(int UserPermission, char *doctor_name);
+
+void checkPatient(int UserPermission, char *patient_name);
+
+void listGroup(char* group);
+
+char* delUser(char *User_name);
+
 #endif

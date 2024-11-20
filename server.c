@@ -61,7 +61,10 @@ void *userFunction(void* arg) {
         strcpy(content, admin);
         strcat(content, password);
         strcat(content, "-2/");
-
+        strcpy(user.username, "admin");
+        strcpy(user.password, password);
+        strcpy(user.permission, "2");
+        int file_permission = 22;
         while (strlen(content) == 0) {
             sendMessage(clientSocket, "The content is empty!\nInput the administrator's password:\n");
             receiveInput(clientSocket, password, sizeof(password));
@@ -71,7 +74,7 @@ void *userFunction(void* arg) {
             strcat(content, "-2/");
         }
         
-        char* printWord = createFile(path, 22, content);
+        char* printWord = createFile(path, file_permission, content);
         sendMessage(clientSocket, printWord);
         username = "admin";
     } else {
@@ -233,38 +236,159 @@ void *userFunction(void* arg) {
                 char* printWord = moveDir(current_path, full_path, last_path, user.permission);
                 sendMessage(clientSocket, printWord);
             }
-        } else if (strcmp(cmd, "createUser") == 0) {
+        } else if (strcmp(cmd, "createUser") == 0 && path != NULL) {
             if (strcmp(user.permission, "2") != 0) {
                 sendMessage(clientSocket, "You don't have permission to create a new user!\n");
             } else {
                 char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
                 readFile("/pwd", content, "2");
 
-                char newUserName[256], newPassword[256], permission[3];
-                sendMessage(clientSocket, "Input the new username:");
-                receiveInput(clientSocket, newUserName, sizeof(newUserName));
-
-                while(checkUserName(newUserName) == 1){
-                    sendMessage(clientSocket, "The username already exists, please input another username:");
-                    receiveInput(clientSocket, newUserName, sizeof(newUserName));
-                }
+                char newUserName[256], newPassword[256], userName[256]="admin";
+                strcpy(newUserName, path);
                 sendMessage(clientSocket, "Input the new password:");
                 receiveInput(clientSocket, newPassword, sizeof(newPassword));
+                char permission[3]="";
+                while(checkUserName(userName) == 1){
+                    strcpy(permission, "");
+                    strcpy(userName, newUserName);
+                    char position[2];
+                    sendMessage(clientSocket, "If you are patient, enter 3, if you are doctor, enter 1, if you are administrators, enter 2\n");
+                    receiveInput(clientSocket, position, sizeof(position));
+                    printf("position: %s\n", position);
+                    if(position[0] != '1' && position[0] != '3' && position[0] != '2'){
+                        sendMessage(clientSocket, "position input error!\n");
+                        continue;
+                    }
 
-                sendMessage(clientSocket, "permission: \nIf you are patient, please input 3n(n is your group), if you are doctor, please input 1n(n is your group), if you are administrators, please input 2\n");
-                receiveInput(clientSocket, permission, sizeof(permission));
+                    strcat(permission, position);
+                    if(position[0] != '2'){
+                        char DoctorGroup[1024];
+                        listGroup(DoctorGroup);
+                        // printf("DoctorGroup: %s\n", DoctorGroup);
+                        char message[1024];
+                        sprintf(message, "DoctorGroup: %s\n", DoctorGroup);
+                        sendMessage(clientSocket, message);
+
+                        char group[2];
+                        int c;
+                        // while ((c = getchar()) != '\n' && c != EOF); // clear input buffer
+                        sendMessage(clientSocket, "Input the group you want to join:\n");
+                        receiveInput(clientSocket, group, sizeof(group));
+
+                        strcat(permission, group);
+                    }
+                    strcat(userName, "_");
+                    strcat(userName, permission);
+                    if(checkUserName(userName) == 1){
+                        sendMessage(clientSocket, "The username already exists, please input another username:");
+                        receiveInput(clientSocket, newUserName, sizeof(newUserName));
+                    }else{
+                        strcpy(newUserName, userName);
+                    }
+                }
+                // while(checkUserName(userName) == 1){
+                //     sendMessage(clientSocket, "The username already exists, please input another username:");
+                //     receiveInput(clientSocket, newUserName, sizeof(newUserName));
+                //     strcpy(userName, newUserName);
+                // }
+                
+                int permission_int = atoi(permission);
+                char doctor_name[1024];
+                if(permission_int/10 == 3){
+                    checkDoctor(permission_int, doctor_name);
+                    if(strcmp(doctor_name, "admin") == 0){
+                        // printf("There is no doctor in this group!\n");
+                        sendMessage(clientSocket, "There is no doctor in this group!\n");
+                        continue;
+                    }
+                }
+                char patient_name[1024];
+                int updata = 0;
+                if(permission_int/10 == 1){
+                    checkPatient(permission_int,patient_name);
+                    if(strcmp(patient_name,"admin") != 0){
+                        updata = 1;
+                    }
+                }
+                char delimiter_1[2] = "-";
+                char delimiter_2[2] = "/";
+                strcat(newUserName, delimiter_1);
+                strcat(newUserName, newPassword);
+                strcat(newUserName, delimiter_1);
+                strcat(newUserName, permission);
+                strcat(newUserName, delimiter_2);
 
                 strcat(content, newUserName);
-                strcat(content, "-");
-                strcat(content, newPassword);
-                strcat(content, "-");
-                strcat(content, permission);
-                strcat(content, "/");
 
                 char* writeStatus = writeFile("/pwd", content, user.permission);
                 sendMessage(clientSocket, writeStatus);
+                if(permission_int/10 == 1 && updata == 1){
+                    char delimiter_0[2] = " ";
+                    char *saveptr1;
+                    // char doctor_path[1024] = "/home/";
+                    // strcat(doctor_path, userName);
+                    char *patient = strtok_r(patient_name, delimiter_0, &saveptr1);
+                    while(patient != NULL){
+                        char full_path[1024] = "/home/";
+                        strcat(full_path, userName);
+                        strcat(full_path, "/");
+                        strcat(full_path, patient);
+                        char doctor_path[1024];
+                        strcpy(doctor_path,full_path);
+                        char patient_path[1024] = "/home/";
+                        strcat(patient_path, patient);
+                        char* printWord = createDirectory(full_path, user.permission);
+                        // printf("%s\n", printWord);
+                        sendMessage(clientSocket, printWord);
+                        printWord = linkPath( doctor_path, patient_path, user.permission);
+                        // printf("%s\n", printWord);
+                        sendMessage(clientSocket, printWord);
+                        patient = strtok_r(NULL, delimiter_0, &saveptr1);
+                    }
+                }
+                if(permission_int/10 == 3){
+                    char delimiter_0[2] = " ";
+                    char *saveptr1;
+                    char patient_path[1024] = "/home/";
+                    strcat(patient_path, userName);
+                    char *doctor = strtok_r(doctor_name, delimiter_0, &saveptr1);
+                    while(doctor != NULL){
+                        char full_path[1024] = "/home/";
+                        strcat(full_path, doctor);
+                        strcat(full_path, "/");
+                        strcat(full_path, userName);
+                        char doctor_path[1024];
+                        strcpy(doctor_path,full_path);
+                        char* printWord = createDirectory(full_path, user.permission);
+                        // printf("%s\n", printWord);
+                        sendMessage(clientSocket, printWord);
+                        printWord = linkPath( doctor_path, patient_path, user.permission);
+                        // printf("%s\n", printWord);
+                        sendMessage(clientSocket, printWord);
+                        doctor = strtok_r(NULL, delimiter_0, &saveptr1);
+                    }
+                }
             }
-        } else if (strcmp(cmd, "su") == 0 && path != NULL) {
+        } else if(strcmp(cmd, "delUser")==0 && path != NULL){
+            if (strcmp(user.permission, "2") != 0) {
+                sendMessage(clientSocket, "You don't have permission to delete a new user!\n");
+            }else{
+                char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
+                readFile("/pwd", content, "2");
+
+                char delUserName[256], newPassword[256], userName[256]="admin";
+                strcpy(delUserName, path);
+                char home[256] = "/home/";
+                strcat(home, delUserName);
+                char* delword = deleteDirectory(home, user.permission);
+                if(strcmp(delword, "Directory deleted successfully!\n")==0){
+                    char* printWord = delUser(delUserName);
+                    sendMessage(clientSocket, printWord);
+                }else{
+                    sendMessage(clientSocket, "The user does not exist!\n");
+                }
+            }
+        }else if (strcmp(cmd, "su") == 0 && path != NULL) {
             sendMessage(clientSocket, "Input the password:\n");
             char password[256];
             receiveInput(clientSocket, password, sizeof(password));
@@ -280,6 +404,13 @@ void *userFunction(void* arg) {
             receiveInput(clientSocket, link_path, sizeof(link_path));
             char* printWord = linkPath(full_path, link_path, user.permission);
             sendMessage(clientSocket, printWord);
+        }else if (strcmp(cmd, "group") == 0) {
+            char DoctorGroup[1024];
+            listGroup(DoctorGroup);
+            // printf("DoctorGroup: %s\n", DoctorGroup);
+            char message[1024];
+            sprintf(message, "DoctorGroup: %s\n", DoctorGroup);
+            sendMessage(clientSocket, message);
         }else if (strcmp(cmd, "quit") == 0) {
             running = 0;
             char* loadWord = saveFileSystem();

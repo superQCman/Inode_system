@@ -250,25 +250,72 @@ int main() {
             }
             char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
             readFile("/pwd",content,"2");
-            char newUserName[256], newPassword[256];
+            char newUserName[256], newPassword[256], userName[256];
             printf("Input the new username:");
             fgets(newUserName, sizeof(newUserName), stdin);
             newUserName[strcspn(newUserName, "\n")] = '\0';
-
+            
             while(checkUserName(newUserName) == 1){
                 printf("The username already exists, please input another username!\n");
                 printf("Input the new username:");
                 fgets(newUserName, sizeof(newUserName), stdin);
                 newUserName[strcspn(newUserName, "\n")] = '\0';
             }
+            strcpy(userName, newUserName);
+
             printf("Input the new password:");
             fgets(newPassword, sizeof(newPassword), stdin);
             newPassword[strcspn(newPassword, "\n")] = '\0';
+            
+            char position[2];
+            printf("If you are patient, enter 3, if you are doctor, enter 1, if you are administrators, enter 2\n");
+            fgets(position, sizeof(position), stdin);
+            position[strcspn(position, "\n")] = '\0';
 
-            printf("permission: \nIf you are patient, please input 3n(n is your group), if you are doctor, please input 1n(n is your group), if you are administrators, please input 2\n");
+            if(position[0] != '1' && position[0] != '3' && position[0] != '2'){
+                printf("position input error!\n");
+                continue;
+            }
+
             char permission[3];
-            fgets(permission, sizeof(permission), stdin);
-            permission[strcspn(permission, "\n")] = '\0';
+            strcat(permission, position);
+            if(position[0] != '2'){
+                char DoctorGroup[1024];
+                listGroup(DoctorGroup);
+                printf("DoctorGroup: %s\n", DoctorGroup);
+
+                char group[2];
+                int c;
+                while ((c = getchar()) != '\n' && c != EOF); // clear input buffer
+                printf("Input the group you want to join:\n");
+                fgets(group, sizeof(group), stdin);
+                group[strcspn(group, "\n")] = '\0';
+
+                strcat(permission, group);
+            }
+            
+
+            // printf("permission: \nIf you are patient, please input 3n(n is your group), if you are doctor, please input 1n(n is your group), if you are administrators, please input 2\n");
+            
+            // fgets(permission, sizeof(permission), stdin);
+            // permission[strcspn(permission, "\n")] = '\0';
+            int permission_int = atoi(permission);
+            char doctor_name[1024];
+            if(permission_int/10 == 3){
+                checkDoctor(permission_int, doctor_name);
+                if(strcmp(doctor_name, "admin") == 0){
+                    printf("There is no doctor in this group!\n");
+                    continue;
+                }
+            }
+            char patient_name[1024];
+            int updata = 0;
+            if(permission_int/10 == 1){
+                checkPatient(permission_int,patient_name);
+                if(strcmp(patient_name,"admin") != 0){
+                    updata = 1;
+                }
+            }
 
             char delimiter_1[2] = "-";
             char delimiter_2[2] = "/";
@@ -279,8 +326,50 @@ int main() {
             strcat(newUserName, delimiter_2);
 
             strcat(content, newUserName);
-            char* printWord =   writeFile("/pwd", content, user.permission);
+            char* printWord = writeFile("/pwd", content, user.permission);
             printf("%s\n", printWord);
+            if(permission_int/10 == 1 && updata == 1){
+                char delimiter_0[2] = " ";
+                char *saveptr1;
+                // char doctor_path[1024] = "/home/";
+                // strcat(doctor_path, userName);
+                char *patient = strtok_r(patient_name, delimiter_0, &saveptr1);
+                while(patient != NULL){
+                    char full_path[1024] = "/home/";
+                    strcat(full_path, userName);
+                    strcat(full_path, "/");
+                    strcat(full_path, patient);
+                    char doctor_path[1024];
+                    strcpy(doctor_path,full_path);
+                    char patient_path[1024] = "/home/";
+                    strcat(patient_path, patient);
+                    char* printWord = createDirectory(full_path, user.permission);
+                    printf("%s\n", printWord);
+                    printWord = linkPath( doctor_path, patient_path, user.permission);
+                    printf("%s\n", printWord);
+                    patient = strtok_r(NULL, delimiter_0, &saveptr1);
+                }
+            }
+            if(permission_int/10 == 3){
+                char delimiter_0[2] = " ";
+                char *saveptr1;
+                char patient_path[1024] = "/home/";
+                strcat(patient_path, userName);
+                char *doctor = strtok_r(doctor_name, delimiter_0, &saveptr1);
+                while(doctor != NULL){
+                    char full_path[1024] = "/home/";
+                    strcat(full_path, doctor);
+                    strcat(full_path, "/");
+                    strcat(full_path, userName);
+                    char doctor_path[1024];
+                    strcpy(doctor_path,full_path);
+                    char* printWord = createDirectory(full_path, user.permission);
+                    printf("%s\n", printWord);
+                    printWord = linkPath( doctor_path, patient_path, user.permission);
+                    printf("%s\n", printWord);
+                    doctor = strtok_r(NULL, delimiter_0, &saveptr1);
+                }
+            }
 
         } else if (strcmp(cmd, "su") == 0  && strcmp(path, "")!=0) {
             printf("Input the password:\n");

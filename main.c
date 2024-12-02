@@ -227,7 +227,7 @@ int main() {
             printf("Input the new content:\n");
             fgets(content, sizeof(content), stdin);
             content[strcspn(content, "\n")] = '\0';
-            printWord =  writeFile(full_path, content, user.permission); 
+            printWord =  writeFile(full_path, content, user.permission,0); 
             printf("%s\n", printWord);
         } else if (strcmp(cmd, "cd") == 0) {
             if(path == NULL) {
@@ -326,7 +326,7 @@ int main() {
             strcat(newUserName, delimiter_2);
 
             strcat(content, newUserName);
-            char* printWord = writeFile("/pwd", content, user.permission);
+            char* printWord = writeFile("/pwd", content, user.permission,0);
             printf("%s\n", printWord);
             if(permission_int/10 == 1 && updata == 1){
                 char delimiter_0[2] = " ";

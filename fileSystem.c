@@ -213,7 +213,8 @@ char* createDirectory(char *path, char *permission) {
     const char delimiter[2] = "/"; // 分隔符
     struct Inode *pointer = inodeMem; // 指向当前目录的i节点
     struct DirectoryBlock *block;
-
+    
+    
     // 递归访问父目录
     parent = NULL;
     directory = strtok(path, delimiter);
@@ -242,7 +243,8 @@ char* createDirectory(char *path, char *permission) {
         parent = directory;
         directory = strtok(NULL, delimiter);
     }
-
+    
+    
     {
         pthread_mutex_lock(&blockLock);
         // 创建目标目录
@@ -255,11 +257,14 @@ char* createDirectory(char *path, char *permission) {
                 pthread_mutex_unlock(&blockLock);  // 解锁
                 return "The directory already exists!\n";
             }
+        }
+        for(i = 0; i < ENTRY_NUMBER; i++){
             if (block->inodeID[i] == -1) {
                 entry = i;
                 break;
             }
         }
+        
         
         if (entry >= 0) {
             pthread_mutex_lock(&bitmapLock);
@@ -281,7 +286,8 @@ char* createDirectory(char *path, char *permission) {
                 pthread_mutex_unlock(&bitmapLock);  // 解锁
                 return "The block is full!\n";
             }
-
+            
+            
             // 查找未使用的i节点
             flag = 0;
             for (i = 0; i < INODE_NUMBER; i++) {
@@ -298,6 +304,8 @@ char* createDirectory(char *path, char *permission) {
                     break;
                 }
             }
+            
+            
             if (n_inode == -1) {
                 // printf("The inode is full!\n");
                 pthread_mutex_unlock(&blockLock);  // 解锁
@@ -314,13 +322,19 @@ char* createDirectory(char *path, char *permission) {
             for (i = 0; i < ENTRY_NUMBER; i++) {
                 block->inodeID[i] = -1;
             }
+
             //创建当前目录和上级目录
             block->inodeID[0] = n_inode;
             strcpy(block->fileName[0], ".");
+            
+            
             block->inodeID[1] = pointer->inodeNumber;
             strcpy(block->fileName[1], "..");
+            
+            
             pthread_mutex_unlock(&bitmapLock);  // 解锁
             pthread_mutex_unlock(&blockLock);  // 解锁
+            saveFileSystem();
             return "Directory created successfully!\n";
             // printf("Directory created successfully!\n");
             
@@ -455,6 +469,7 @@ char* linkPath(char *path, char *path_origin, char *permission) {
     if(flag_origin == 0){
         return "The path does not exist!\n";
     }else{
+        saveFileSystem();
         return "Path linked successfully!\n";
     }
 }
@@ -530,7 +545,7 @@ char* deleteDirectory(char *path, char *permission) {
                         }
                         // 删除目录
                         block->inodeID[i] = -1;
-                        block->fileName[i][0] = '\0';
+                        memset(block->fileName[i], '\0', sizeof(block->fileName[i]));
                         {
                             pthread_mutex_lock(&bitmapLock);  // 加锁
                             blockBitmap[inodeMem[n_inode].blockID[0] / 8] &= ~(1 << (inodeMem[n_inode].blockID[0] % 8)); 
@@ -549,11 +564,12 @@ char* deleteDirectory(char *path, char *permission) {
                     }else{
                         // 删除目录
                         block->inodeID[i] = -1;
-                        block->fileName[i][0] = '\0';
+                        memset(block->fileName[i], '\0', sizeof(block->fileName[i]));
                         inodeMem[n_inode].fileNum--;
                     }
                     // printf("Directory deleted successfully!\n");
                     pthread_mutex_unlock(&blockLock);  // 解锁
+                    saveFileSystem();
                     return "Directory deleted successfully!\n";
                 } else {
                     // printf("The specified path is not a directory!\n");
@@ -617,6 +633,8 @@ char* createFile(char *path, int file_permission, char* content) {
                 pthread_mutex_unlock(&blockLock);  // 解锁
                 return "The file already exists!\n";
             }
+        }
+        for(i = 0; i < ENTRY_NUMBER; i++){
             if (block->inodeID[i] == -1) {
                 entry = i;
                 break;
@@ -691,6 +709,7 @@ char* createFile(char *path, int file_permission, char* content) {
             }
             // printf("File created successfully!\n");
             pthread_mutex_unlock(&blockLock);  // 解锁
+            saveFileSystem();
             return "File created successfully!\n";
         } else {
             // printf("The directory is full!\n");
@@ -762,10 +781,11 @@ char* deleteFile(char *path, char *permission) {
                     }
                     // 删除文件
                     block->inodeID[i] = -1;
-                    block->fileName[i][0] = '\0';
+                    memset(block->fileName[i], '\0', sizeof(block->fileName[i]));
                     int blockNum = inodeMem[n_inode].blockNum;
-                    for(int j = 0; j<blockNum; j++){ //修改
-                        if(inodeMem[n_inode].fileNum == 1){
+                    
+                    if(inodeMem[n_inode].fileNum == 1){
+                        for(int j = 0; j<blockNum; j++){ //修改
                             {
                                 pthread_mutex_lock(&bitmapLock);  // 加锁
                                 blockBitmap[inodeMem[n_inode].blockID[j] / 8] &= ~(1 << (inodeMem[n_inode].blockID[j] % 8)); 
@@ -777,15 +797,19 @@ char* deleteFile(char *path, char *permission) {
                                 inodeMem[n_inode].blockID[j] = -1;
                                 inodeMem[n_inode].fileType = -1;
                                 inodeMem[n_inode].blockNum = 0;
+                                inodeMem[n_inode].fileNum = 0;
                                 pthread_mutex_unlock(&inodeLock);  // 解锁
                             }
-                        }else{
-                            inodeMem[n_inode].fileNum--;
                         }
+                    }else{
+                        block->inodeID[i] = -1;
+                        memset(block->fileName[i], '\0', sizeof(block->fileName[i]));
+                        inodeMem[n_inode].fileNum--;
                     }
                     
                     // printf("File deleted successfully!\n");
                     pthread_mutex_unlock(&blockLock);  // 解锁
+                    saveFileSystem();
                     return "File deleted successfully!\n";
                 } else {
                     // printf("The specified path is not a file!\n");
@@ -940,14 +964,14 @@ char* readFile(char *path, char *content_back, char *permission) {
 }
 
 // 写入文件函数（动态增加或减少块数量）
-char* writeFile(char *path, char *content, char *permission) {
+char* writeFile(char *path, char *content, char *permission, int update) {
     int permission_int = atoi(permission);
     if(permission_int/10 == 3 && permission_int != 2){
         // printf("You are patient, you can't write a file!\n");
         return "You are patient, you can't write a file!\n";
     }
     int i, j, flag;
-    
+
     char *directory, *parent;
     const char delimiter[2] = "/";
     struct Inode *pointer = inodeMem;
@@ -957,9 +981,10 @@ char* writeFile(char *path, char *content, char *permission) {
     // printf("Input the path:\n");
     // fgets(path, sizeof(path), stdin);
     // path[strcspn(path, "\n")] = '\0';  // 去掉行进符
+    printf("test2\n");
     
     size_t content_size = strlen(content);
-    if(strcmp(path, "/pwd") == 0){
+    if(strcmp(path, "/pwd") == 0 && update == 0){
         if (strlen(content) == 0) {
             // printf("The content is empty!\n");
             // createFile(path, permission);
@@ -981,9 +1006,12 @@ char* writeFile(char *path, char *content, char *permission) {
 
             if (strcmp(full_path, "/home/admin") != 0) {
                 createDirectory(home, permission);
+                printf("test3\n");
+                
                 createDirectory(full_path, permission);
             }
-
+            printf("root 11:\n");
+            
             USER = strtok_r(NULL, "/", &saveptr1);
         }
         strcpy(content, content_temp);
@@ -1016,7 +1044,7 @@ char* writeFile(char *path, char *content, char *permission) {
         parent = directory;
         directory = strtok(NULL, delimiter);
     }
-
+    
     // 写入文件
     block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
     for (i = 0; i < ENTRY_NUMBER; i++) {
@@ -1043,7 +1071,6 @@ char* writeFile(char *path, char *content, char *permission) {
                         }
                     }
                 }
-
                 // 分配新的块
                 if (new_block_num > old_block_num) {
                     for (j = old_block_num; j < new_block_num; j++) {
@@ -1071,7 +1098,8 @@ char* writeFile(char *path, char *content, char *permission) {
                         }
                     }
                 }
-
+                printf("root 12:\n");
+                
                 // 更新文件内容
                 for (j = 0; j < new_block_num; j++) {
                     struct FileBlock *fileBlock = (struct FileBlock *) &blockMem[inodeMem[n_inode].blockID[j]];
@@ -1082,7 +1110,8 @@ char* writeFile(char *path, char *content, char *permission) {
                         fileBlock->content[bytes_to_copy] = '\0';
                     }
                 }
-
+                printf("root 13:\n");
+                
                 {  
                     pthread_mutex_lock(&inodeLock);  // 加锁
                     inodeMem[n_inode].blockNum = new_block_num;
@@ -1090,6 +1119,7 @@ char* writeFile(char *path, char *content, char *permission) {
                 }
                 // printf("File content updated successfully!\n");
                 printf("Server: %d blocks were written!\n", inodeMem[n_inode].blockNum);
+                saveFileSystem();
                 return "File content updated successfully!\n";
             } else {
                 // printf("The specified path is not a file!\n");
@@ -1179,18 +1209,6 @@ void listFiles(char *path, int clientSocket) {
 }
 
 void listFiles_main(char *path) {
-    pthread_mutex_lock(&blockLock_r);  // 加锁
-    pthread_mutex_lock(&inodeLock_r);  // 加锁
-    if(inodeLock_count == 0){
-        pthread_mutex_lock(&inodeLock);  // 加锁
-    }
-    inodeLock_count++;
-    if(blockLock_count == 0){
-        pthread_mutex_lock(&blockLock);  // 加锁
-    }
-    blockLock_count++;
-    pthread_mutex_unlock(&inodeLock_r);  // 解锁
-    pthread_mutex_unlock(&blockLock_r);  // 解锁
     int i, flag;
     // char path[100];
     char *directory, *parent;
@@ -1217,14 +1235,6 @@ void listFiles_main(char *path) {
         if (flag == 0 || pointer->fileType == 1) {
             // 如果父目录不存在或者不是目录文件
             printf("Server: The path does not exist!\n");
-            inodeLock_count--;
-            blockLock_count--;
-            if(inodeLock_count == 0){
-                pthread_mutex_unlock(&inodeLock);  // 解锁
-            }
-            if(blockLock_count == 0){
-                pthread_mutex_unlock(&blockLock);  // 解锁
-            }
             return;
         }
         directory = strtok(NULL, delimiter); 
@@ -1236,14 +1246,6 @@ void listFiles_main(char *path) {
         if (block->inodeID[i] != -1) {
             printf("%d\t%d\t%s\n", block->inodeID[i], 1-inodeMem[block->inodeID[i]].fileType, block->fileName[i]);
         }
-    }
-    inodeLock_count--;
-    blockLock_count--;
-    if(inodeLock_count == 0){
-        pthread_mutex_unlock(&inodeLock);  // 解锁
-    }
-    if(blockLock_count == 0){
-        pthread_mutex_unlock(&blockLock);  // 解锁
     }
     return ;
 }
@@ -1262,7 +1264,7 @@ char* moveDir(char *current_path, char *full_path, char *last_path, char *permis
 }
 
 
-int checkUser(char *input_username, char *input_password, char *current_path, char *last_path){
+int checkUser(char *input_username, char *input_password, char *current_path, char *last_path, struct User *user){
     char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
     readFile("/pwd",content,"2");
     char *username, *password, *permission;
@@ -1275,10 +1277,10 @@ int checkUser(char *input_username, char *input_password, char *current_path, ch
         permission = strtok_r(NULL, "-", &saveptr2);
         
         if(strcmp(username, input_username) == 0 && strcmp(password, input_password) == 0){
-            strcpy(user.username, username);
-            strcpy(user.password, password);
-            strcpy(user.permission, permission);
-            printf("Server: username: %s\npassword: %s\npermission: %s\n", user.username, user.password, user.permission);
+            strcpy(user->username, username);
+            strcpy(user->password, password);
+            strcpy(user->permission, permission);
+            printf("Server: username: %s\npassword: %s\npermission: %s\n", user->username, user->password, user->permission);
             login = 1;
         }
         USER = strtok_r(NULL, "/", &saveptr1);
@@ -1290,7 +1292,7 @@ int checkUser(char *input_username, char *input_password, char *current_path, ch
         char full_path[256] = "/home/";
         if(strcmp(username, "admin") != 0){
             strcat(full_path, username);
-            moveDir(current_path, full_path, last_path, user.permission);
+            moveDir(current_path, full_path, last_path, user->permission);
         }
         printf("Server: Login successfully!\n");
         return 1;
@@ -1348,7 +1350,7 @@ void checkDoctor(int UserPermission, char *doctor_name) {
 
 char* delUser(char *User_name) {
     char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
-    readFile("/pwd", content, "2");
+    char *txt=readFile("/pwd", content, "2");
     char content_back[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
     content_back[0] = '\0';
     char *username, *password, *permission;
@@ -1373,7 +1375,7 @@ char* delUser(char *User_name) {
         }
         USER = strtok_r(NULL, "/", &saveptr1);
     }
-    writeFile("/pwd", content_back, "2");
+    writeFile("/pwd", content_back, "2",1);
     if(flag == 0){
         return "The user does not exist!\n";
     }else{

@@ -45,7 +45,7 @@ struct User {
 struct Inode inodeMem[INODE_NUMBER];  // i节点数组，存储所有文件的iNode
 struct FileBlock blockMem[BLOCK_NUMBER];  // 块数组
 char blockBitmap[BLOCK_NUMBER/8];  // 块的位图
-struct User user;  // 用户数组，存储所有用户的信息
+
 
 
 
@@ -65,7 +65,7 @@ char* deleteFile(char *path, char *permission);
 char* readFile(char *path, char *content_back, char *permission);
 
 // 写入文件函数
-char* writeFile(char *path, char *content, char *permission);
+char* writeFile(char *path, char *content, char *permission, int flag);
 
 // 移动目录
 char* moveDir(char *current_path, char *full_path, char *last_path, char *permission);
@@ -85,7 +85,7 @@ void listFiles_main(char *path);
 _Bool goToDirectory(char *path_origin, char *permission);
 
 
-int checkUser(char *input_username, char *input_password, char *current_path, char *last_path);
+int checkUser(char *input_username, char *input_password, char *current_path, char *last_path, struct User *user);
 
 void sendMessage(int clientSocket, const char* message);
 

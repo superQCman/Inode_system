@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <pthread.h>
 
 #define PORT 8000
 
@@ -74,8 +75,13 @@ void *userFunction(void* arg) {
             strcat(content, password);
             strcat(content, "-2/");
         }
-        
+        char path_tmp[512];
+        strcpy(path_tmp, path);
         char* printWord = createFile(path, file_permission, content);
+        if(strcmp(printWord, "File created successfully!\n")==0){
+            strcpy(fileLock[0].filePath, path_tmp);
+            fileLock[0].lockNum = 1;
+        }
         sendMessage(clientSocket, printWord);
         username = "admin";
     } else {
@@ -121,6 +127,7 @@ void *userFunction(void* arg) {
                                "quit - Exit\n"
                                "Input your command:\n");
     while (running) {
+        saveFileSystem();
         // Prompt user for command input
         snprintf(command_word, sizeof(command_word), "- %s: %s$ ", user.username, current_path);
         sendMessage(clientSocket, command_word);
@@ -199,11 +206,42 @@ void *userFunction(void* arg) {
                 printf("permission_int: %d\n",permission_int);
                 continue;
             } else {
+                char path_tmp[1024];
+                strcpy(path_tmp, full_path);
                 char* printWord = createFile(full_path, file_permission, content);
+                if(strcmp(printWord, "File created successfully!\n")==0){
+                    for(i = 0; i < MAX_FILE; i++){
+                        if(fileLock[i].lockNum == 0){
+                            strcpy(fileLock[i].filePath, path_tmp);
+                            fileLock[i].lockNum = 1;
+                            break;
+                        }
+                    }
+                    
+                }
                 sendMessage(clientSocket, printWord);
             }
         } else if (strcmp(cmd, "rmfile") == 0) {
+            int lockNum = -1;
+            for (i = 0; i < MAX_FILE; i++) {
+                if (fileLock[i].lockNum && strcmp(fileLock[i].filePath, full_path) == 0) {
+                    lockNum = i;
+                    break;
+                }
+            }
+            if(lockNum == -1){
+                sendMessage(clientSocket, "The fileLock is not exist!\n");
+                continue;
+            }
+            if (pthread_mutex_trylock(&fileLock[lockNum].lock) != 0) {
+                sendMessage(clientSocket, "The file is being modified by other user, please try again later!\n");
+                continue;
+            }
             char* printWord = deleteFile(full_path, user.permission);
+            if(strcmp(printWord, "File deleted successfully!\n")){
+                fileLock[lockNum].lockNum = 0;
+            }
+            pthread_mutex_unlock(&fileLock[lockNum].lock);
             sendMessage(clientSocket, printWord);
         } else if (strcmp(cmd, "read") == 0) {
             char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
@@ -217,6 +255,21 @@ void *userFunction(void* arg) {
                 sendMessage(clientSocket, printWord);
             }
         } else if (strcmp(cmd, "write") == 0) {
+            int lockNum = -1;
+            for (i = 0; i < MAX_FILE; i++) {
+                if (fileLock[i].lockNum && strcmp(fileLock[i].filePath, full_path) == 0) {
+                    lockNum = i;
+                    break;
+                }
+            }
+            if(lockNum == -1){
+                sendMessage(clientSocket, "The fileLock is not exist!\n");
+                continue;
+            }
+            if (pthread_mutex_trylock(&fileLock[lockNum].lock) != 0) {
+                sendMessage(clientSocket, "The file is being modified by other user, please try again later!\n");
+                continue;
+            }
             char current_content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
             int permission_int = atoi(user.permission);
             if(permission_int/10 == 3 && permission_int != 2){
@@ -238,6 +291,7 @@ void *userFunction(void* arg) {
 
             char* writeStatus = writeFile(full_path, current_content, user.permission, 0);
             sendMessage(clientSocket, writeStatus);
+            pthread_mutex_unlock(&fileLock[lockNum].lock);
         } else if (strcmp(cmd, "cd") == 0) {
             if (path == NULL){
                 sendMessage(clientSocket, "Invalid command!\n");
@@ -505,6 +559,12 @@ int main() {
     struct DirectoryBlock *root = (struct DirectoryBlock *) &blockMem[0];
     for (i = 0; i < ENTRY_NUMBER; i++) {
         root->inodeID[i] = -1;
+    }
+
+    for(i = 0; i < MAX_FILE; i++){
+        pthread_mutex_init(&fileLock[i].lock, NULL);
+        fileLock[i].filePath[0] = '\0';
+        fileLock[i].lockNum = 0;
     }
     char* loadWord = loadFileSystem();
     printf("%s\n", loadWord);

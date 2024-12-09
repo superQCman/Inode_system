@@ -59,6 +59,7 @@ char* saveFileSystem() {
     fwrite(inodeMem, sizeof(struct Inode), INODE_NUMBER, file);
     fwrite(blockMem, sizeof(struct DirectoryBlock), BLOCK_NUMBER, file);
     fwrite(blockBitmap, sizeof(blockBitmap), 1, file);
+    fwrite(fileLock, sizeof(struct FileLock), MAX_FILE, file);
     fclose(file);
     // printf("Filesystem data saved successfully.\n");
 
@@ -87,6 +88,7 @@ char* loadFileSystem() {
     fread(inodeMem, sizeof(struct Inode), INODE_NUMBER, file);
     fread(blockMem, sizeof(struct DirectoryBlock), BLOCK_NUMBER, file);
     fread(blockBitmap, sizeof(blockBitmap), 1, file);
+    fread(fileLock, sizeof(struct FileLock), MAX_FILE, file);
     fclose(file);
     // printf("Filesystem data loaded successfully.\n");
 

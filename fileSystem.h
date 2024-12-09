@@ -11,6 +11,7 @@
 #define BLOCK_NUMBER 128  // 最大块数
 #define INODE_NUMBER 128  // 最大i节点数
 #define MAX_BLCK_NUMBER_PER_FILE 8  // 每个文件最大块数
+#define MAX_FILE 512  // 最大文件数
 
 
 // i节点结构体
@@ -23,6 +24,11 @@ struct Inode {
     int fileNum; // 文件数
 };
 
+struct FileLock{
+    pthread_mutex_t lock;
+    char filePath[1024];
+    int lockNum;  
+};
 // 目录块结构体
 struct DirectoryBlock {
     char fileName[ENTRY_NUMBER][MAX_FILENAME_LENGTH];  // 文件名列表
@@ -45,7 +51,7 @@ struct User {
 struct Inode inodeMem[INODE_NUMBER];  // i节点数组，存储所有文件的iNode
 struct FileBlock blockMem[BLOCK_NUMBER];  // 块数组
 char blockBitmap[BLOCK_NUMBER/8];  // 块的位图
-
+struct FileLock fileLock[MAX_FILE];  // 文件锁
 
 
 

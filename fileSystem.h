@@ -109,4 +109,10 @@ void listGroup(char* group);
 
 char* delUser(char *User_name);
 
+// 修改文件名
+char* renameFile(char *oldPath, char *newName, char *permission);
+
+// 修改目录名
+char* renameDirectory(char *oldPath, char *newName, char *permission);
+
 #endif

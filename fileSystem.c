@@ -1435,3 +1435,117 @@ void checkPatient(int UserPermission, char *patient_name) {
         strcpy(patient_name, "admin");
     }
 }
+
+// 修改文件名函数
+char* renameFile(char *oldPath, char *newName, char *permission) {
+    int permission_int = atoi(permission);
+    if (permission_int / 10 == 3 && permission_int != 2) {
+        return "You are patient, you can't rename a file!\n";
+    }
+    int i, flag;
+    char *directory, *parent;
+    const char delimiter[2] = "/";
+    struct Inode *pointer = inodeMem;
+    struct DirectoryBlock *block;
+
+    // 递归访问父目录
+    parent = NULL;
+    directory = strtok(oldPath, delimiter);
+    if (directory == NULL) {
+        return "It is the root directory!\n";
+    }
+    while (directory != NULL) {
+        if (parent != NULL) {
+            block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+            flag = 0;
+            for (i = 0; i < ENTRY_NUMBER; i++) {
+                if (strcmp(block->fileName[i], parent) == 0) {
+                    flag = 1;
+                    pointer = &inodeMem[block->inodeID[i]];
+                    break;
+                }
+            }
+            if (flag == 0 || pointer->fileType == 1) {
+                return "The path does not exist!\n";
+            }
+        }
+        parent = directory;
+        directory = strtok(NULL, delimiter);
+    }
+
+    // 修改文件名
+    block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+    for (i = 0; i < ENTRY_NUMBER; i++) {
+        if (strcmp(block->fileName[i], parent) == 0) {
+            int n_inode = block->inodeID[i];
+            if (inodeMem[n_inode].fileType == 1) {
+                if (permission_int / 10 != inodeMem[n_inode].permission / 100 || permission_int % 10 != inodeMem[n_inode].permission % 10) {
+                    return "You don't have permission to rename the file!\n";
+                }
+                strcpy(block->fileName[i], newName);
+                saveFileSystem();
+                return "File renamed successfully!\n";
+            } else {
+                return "The specified path is not a file!\n";
+            }
+        }
+    }
+    return "The file does not exist!\n";
+}
+
+// 修改目录名函数
+char* renameDirectory(char *oldPath, char *newName, char *permission) {
+    int permission_int = atoi(permission);
+    if (permission_int / 10 == 3 && permission_int != 2) {
+        return "You are patient, you can't rename a directory!\n";
+    }
+    int i, flag;
+    char *directory, *parent;
+    const char delimiter[2] = "/";
+    struct Inode *pointer = inodeMem;
+    struct DirectoryBlock *block;
+
+    // 递归访问父目录
+    parent = NULL;
+    directory = strtok(oldPath, delimiter);
+    if (directory == NULL) {
+        return "It is the root directory!\n";
+    }
+    while (directory != NULL) {
+        if (parent != NULL) {
+            block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+            flag = 0;
+            for (i = 0; i < ENTRY_NUMBER; i++) {
+                if (strcmp(block->fileName[i], parent) == 0) {
+                    flag = 1;
+                    pointer = &inodeMem[block->inodeID[i]];
+                    break;
+                }
+            }
+            if (flag == 0 || pointer->fileType == 1) {
+                return "The path does not exist!\n";
+            }
+        }
+        parent = directory;
+        directory = strtok(NULL, delimiter);
+    }
+
+    // 修改目录名
+    block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+    for (i = 0; i < ENTRY_NUMBER; i++) {
+        if (strcmp(block->fileName[i], parent) == 0) {
+            int n_inode = block->inodeID[i];
+            if (inodeMem[n_inode].fileType == 0) {
+                if (permission_int / 10 != inodeMem[n_inode].permission / 100 || permission_int % 10 != inodeMem[n_inode].permission % 10) {
+                    return "You don't have permission to rename the directory!\n";
+                }
+                strcpy(block->fileName[i], newName);
+                saveFileSystem();
+                return "Directory renamed successfully!\n";
+            } else {
+                return "The specified path is not a directory!\n";
+            }
+        }
+    }
+    return "The directory does not exist!\n";
+}

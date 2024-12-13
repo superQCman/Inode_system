@@ -528,6 +528,52 @@ void *userFunction(void* arg) {
             running = 0;
             char* loadWord = saveFileSystem();
             printf("%s\n", loadWord);
+        }else if (strcmp(cmd, "renameFile") == 0 && path != NULL) {
+            // 先加锁
+            int lockNum = -1;
+            for (i = 0; i < MAX_FILE; i++) {
+                if (fileLock[i].lockNum && strcmp(fileLock[i].filePath, full_path) == 0) {
+                    lockNum = i;
+                    break;
+                }
+            }
+            if(lockNum == -1){
+                sendMessage(clientSocket, "The fileLock is not exist!\n");
+                continue;
+            }
+            if (pthread_mutex_trylock(&fileLock[lockNum].lock) != 0) {
+                sendMessage(clientSocket, "The file is being modified by other user, please try again later!\n");
+                continue;
+            }
+            // 让用户输入新的文件名
+            sendMessage(clientSocket, "Input the new file name:\n");
+            char newName[256];
+            receiveInput(clientSocket, newName, sizeof(newName));
+            // 存放旧的文件名
+            char oldName[256];
+            strcpy(oldName, full_path);
+            char* printWord = renameFile(full_path, newName, user.permission);
+            strcpy(full_path, oldName);
+            // 如果修改成功，修改文件锁的文件名
+            if(strcmp(printWord, "File renamed successfully!\n") == 0){
+                char newFullPath[1024];
+                strcpy(newFullPath, full_path);
+                char *lastSlash = strrchr(newFullPath, '/');
+                if (lastSlash != NULL) {
+                    *(lastSlash + 1) = '\0'; // 保留最后一个斜杠
+                }
+                strcat(newFullPath, newName);
+                strcpy(fileLock[lockNum].filePath, newFullPath);
+            }
+            sendMessage(clientSocket, printWord);
+            pthread_mutex_unlock(&fileLock[lockNum].lock);
+        }else if (strcmp(cmd, "renameDirectory") == 0 && path != NULL) {
+            // 让用户输入新的文件名
+            sendMessage(clientSocket, "Input the new directory name:\n");
+            char newName[256];
+            receiveInput(clientSocket, newName, sizeof(newName));
+            char* printWord = renameDirectory(full_path, newName, user.permission);
+            sendMessage(clientSocket, printWord);
         }else{
             sendMessage(clientSocket, "Invalid command!\n");
         }

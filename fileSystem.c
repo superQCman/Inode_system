@@ -1549,3 +1549,34 @@ char* renameDirectory(char *oldPath, char *newName, char *permission) {
     }
     return "The directory does not exist!\n";
 }
+
+char* copyFile(char *srcPath, char *destPath, char *permission) {
+    int permission_int = atoi(permission);
+    if (permission_int / 10 == 3 && permission_int != 2) {
+        return "You are patient, you can't copy a file!\n";
+    }
+    // 读取源文件
+    char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
+    readFile(srcPath, content, permission);
+    // 创建目标文件
+    char* printWord = createFile(destPath, permission_int, content);
+    return printWord;
+}
+
+char* moveFile(char *srcPath, char *destPath, char *permission) {
+    int permission_int = atoi(permission);
+    if (permission_int / 10 == 3 && permission_int != 2) {
+        return "You are patient, you can't move a file!\n";
+    }
+    // 读取源文件
+    char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
+    readFile(srcPath, content, permission);
+    // 删除源文件
+    char* printWord = deleteFile(srcPath, permission);
+    if(strcmp(printWord, "File deleted successfully!\n") != 0){
+        return printWord;
+    }
+    // 创建目标文件
+    printWord = createFile(destPath, permission_int, content);
+    return printWord;
+}

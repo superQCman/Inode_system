@@ -125,6 +125,9 @@ void *userFunction(void* arg) {
                                "ln <path> - Link a file\n"
                                "delUser <username> - Delete a user\n"
                                "quit - Exit\n"
+                               "cpfile <srcPath> <destPath> - Copy a file\n"
+                               "renameFile <oldPath> <newName> - Rename a file\n"
+                               "renameDirectory <oldPath> <newName> - Rename a directory\n"
                                "Input your command:\n");
     while (running) {
         saveFileSystem();
@@ -574,6 +577,78 @@ void *userFunction(void* arg) {
             receiveInput(clientSocket, newName, sizeof(newName));
             char* printWord = renameDirectory(full_path, newName, user.permission);
             sendMessage(clientSocket, printWord);
+        }else if (strcmp(cmd, "cpfile") == 0 && path != NULL) {
+            // 先加锁
+            int lockNum = -1;
+            for (i = 0; i < MAX_FILE; i++) {
+                if (fileLock[i].lockNum && strcmp(fileLock[i].filePath, full_path) == 0) {
+                    lockNum = i;
+                    break;
+                }
+            }
+            if(lockNum == -1){
+                sendMessage(clientSocket, "The fileLock is not exist!\n");
+                continue;
+            }
+            if (pthread_mutex_trylock(&fileLock[lockNum].lock) != 0) {
+                sendMessage(clientSocket, "The file is being modified by other user, please try again later!\n");
+                continue;
+            }
+            // 让用户输入要复制到的路径
+            sendMessage(clientSocket, "Input the path of the file you want to copy:\n");
+            char copy_path[256];
+            receiveInput(clientSocket, copy_path, sizeof(copy_path));
+            char copy_path_tmp[256];
+            strcpy(copy_path_tmp, copy_path);
+            char* printWord = copyFile(full_path, copy_path_tmp, user.permission);
+            // 如果复制成功，添加文件锁
+            if(strcmp(printWord, "File created successfully!\n")==0){
+                for(i = 0; i < MAX_FILE; i++){
+                    if(fileLock[i].lockNum == 0){
+                        strcpy(fileLock[i].filePath, copy_path);
+                        fileLock[i].lockNum = 1;
+                        break;
+                    }
+                }
+            }
+            sendMessage(clientSocket, printWord);
+            pthread_mutex_unlock(&fileLock[lockNum].lock);
+        }else if (strcmp(cmd, "mvfile") == 0 && path != NULL) {
+            // 先加锁
+            int lockNum = -1;
+            for (i = 0; i < MAX_FILE; i++) {
+                if (fileLock[i].lockNum && strcmp(fileLock[i].filePath, full_path) == 0) {
+                    lockNum = i;
+                    break;
+                }
+            }
+            if(lockNum == -1){
+                sendMessage(clientSocket, "The fileLock is not exist!\n");
+                continue;
+            }
+            if (pthread_mutex_trylock(&fileLock[lockNum].lock) != 0) {
+                sendMessage(clientSocket, "The file is being modified by other user, please try again later!\n");
+                continue;
+            }
+            sendMessage(clientSocket, "Input the path of the file you want to move:\n");
+            char move_path[256];
+            receiveInput(clientSocket, move_path, sizeof(move_path));
+            char move_path_tmp[256];
+            strcpy(move_path_tmp,move_path);
+            char* printWord = moveFile(full_path, move_path_tmp, user.permission);
+            // 如果复制成功，添加文件锁
+            if(strcmp(printWord, "File created successfully!\n")==0){
+                fileLock[lockNum].lockNum = 0;
+                for(i = 0; i < MAX_FILE; i++){
+                    if(fileLock[i].lockNum == 0){
+                        strcpy(fileLock[i].filePath, move_path);
+                        fileLock[i].lockNum = 1;
+                        break;
+                    }
+                }
+            }
+            sendMessage(clientSocket, printWord);
+            pthread_mutex_unlock(&fileLock[lockNum].lock);
         }else{
             sendMessage(clientSocket, "Invalid command!\n");
         }

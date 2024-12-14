@@ -115,4 +115,10 @@ char* renameFile(char *oldPath, char *newName, char *permission);
 // 修改目录名
 char* renameDirectory(char *oldPath, char *newName, char *permission);
 
+// 复制文件
+char* copyFile(char *srcPath, char *destPath, char *permission);
+
+// 移动文件
+char* moveFile(char *srcPath, char *destPath, char *permission);
+
 #endif

@@ -19,11 +19,13 @@ graph TD
     Client -->|Socket 连接| Server
     Server -->|请求| FileSystem
     Server --> User
-    FileSystem --> directory
+    FileSystem --> |找到目标父目录|directory
     FileSystem --> |执行结果|Server
     Server --> |交互信息|Client
     directory --> Inode
     Inode -->|管理| FileBlock
+    FileBlock -->|数据| FileSystem
+    DirectoryBlock -->|目录项| FileSystem
 
     Inode -->|管理| DirectoryBlock
     User -->|权限控制| Inode

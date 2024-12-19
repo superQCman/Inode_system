@@ -94,7 +94,7 @@ void *userFunction(void* arg) {
         receiveInput(clientSocket, input_password, sizeof(input_password));
 
         while (checkUser(input_username, input_password, current_path, last_path, &user) == 0) {
-            sendMessage(clientSocket, "用户名或密码错误，请重新输入！\nusername:");
+            sendMessage(clientSocket, "Invalid username or password, please try again!\nusername:");
             receiveInput(clientSocket, input_username, sizeof(input_username));
 
             sendMessage(clientSocket, "password:");
@@ -120,24 +120,24 @@ void *userFunction(void* arg) {
                                "read <path> - Read a file\n"
                                "write <path> - Write a file\n"
                                "cd <path> - Change directory\n"
-                               "createUser - Create a new user\n"
+                               "createUser <username> - Create a new user\n"
                                "su <username> - Change user\n"
                                "ln <path> - Link a file\n"
                                "delUser <username> - Delete a user\n"
                                "quit - Exit\n"
-                               "cpfile <srcPath> <destPath> - Copy a file\n"
-                               "renameFile <oldPath> <newName> - Rename a file\n"
-                               "renameDirectory <oldPath> <newName> - Rename a directory\n"
+                               "cpfile <srcPath> - Copy a file\n"
+                               "renameFile <oldPath> - Rename a file\n"
+                               "renameDirectory <oldPath> - Rename a directory\n"
                                "Input your command:\n");
     while (running) {
-        saveFileSystem();
+        // saveFileSystem();
         // Prompt user for command input
         snprintf(command_word, sizeof(command_word), "- %s: %s$ ", user.username, current_path);
         sendMessage(clientSocket, command_word);
         
         // Receive command from client
         receiveInput(clientSocket, command, sizeof(command));
-        loadFileSystem();
+        // loadFileSystem();
         cmd = strtok(command, " ");
         path = strtok(NULL, "");
 
@@ -192,10 +192,10 @@ void *userFunction(void* arg) {
             sendMessage(clientSocket, "Input the content:\n");
             receiveInput(clientSocket, content, sizeof(content));
 
-            sendMessage(clientSocket, "Input the file permission (文件权限11n表示医生创建且只有第n组医生（n == 0代表所有组的医生都可以访问）可以访问，22表示管理员创建且只有管理员可以访问，21n表示管理员创建且只有第n组医生和管理员可以访问，13n表示医生创建且只有患者和医生可以访问（只有第n组的医生患者可以访问）!):\n");
+            sendMessage(clientSocket, "Input the file permission (File permission 11n means created by doctor and only doctors of group n (n == 0 means all groups) can access, 22 means created by admin and only admin can access, 21n means created by admin and only doctors of group n and admin can access, 13n means created by doctor and only patients and doctors of group n can access):\n");
             receiveInput(clientSocket, file_permission_char, sizeof(file_permission_char));
             int file_permission = atoi(file_permission_char);
-            if(permission_int == 0){
+            if(permission_int/10 == 3){
                 sendMessage(clientSocket, "You are patient, you can't create a file!\n");
                 continue;
             }
@@ -241,7 +241,7 @@ void *userFunction(void* arg) {
                 continue;
             }
             char* printWord = deleteFile(full_path, user.permission);
-            if(strcmp(printWord, "File deleted successfully!\n")){
+            if(strcmp(printWord, "File deleted successfully!\n")==0){
                 fileLock[lockNum].lockNum = 0;
             }
             pthread_mutex_unlock(&fileLock[lockNum].lock);
@@ -283,10 +283,13 @@ void *userFunction(void* arg) {
             strcpy(temp_path, full_path);
             char* readStatus = readFile(full_path, current_content, user.permission);
             strcpy(full_path, temp_path);
-            if (strlen(current_content) > 0) {
+            if (strcmp(readStatus, "File content: ") == 0) {
+                sendMessage(clientSocket, readStatus);
                 sendMessage(clientSocket, current_content);
             } else {
                 sendMessage(clientSocket, readStatus);
+                pthread_mutex_unlock(&fileLock[lockNum].lock);
+                continue;
             }
             
             sendMessage(clientSocket, "\nInput the new content:\n");
@@ -600,7 +603,7 @@ void *userFunction(void* arg) {
             receiveInput(clientSocket, copy_path, sizeof(copy_path));
             char copy_path_tmp[256];
             strcpy(copy_path_tmp, copy_path);
-            char* printWord = copyFile(full_path, copy_path_tmp, user.permission);
+            char* printWord = copyFile(full_path, copy_path_tmp, user.permission, clientSocket);
             // 如果复制成功，添加文件锁
             if(strcmp(printWord, "File created successfully!\n")==0){
                 for(i = 0; i < MAX_FILE; i++){

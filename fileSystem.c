@@ -29,7 +29,7 @@ int bitmapLock_count = 0;
 void sendMessage(int clientSocket, const char* message) {
     // Send "OUTPUT" marker and the message to the client
     send(clientSocket, "OUTPUT", strlen("OUTPUT"), 0);
-    usleep(1000);
+    usleep(100);
     char buffer[1024];
     recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
     send(clientSocket, message, strlen(message), 0);
@@ -1550,17 +1550,37 @@ char* renameDirectory(char *oldPath, char *newName, char *permission) {
     return "The directory does not exist!\n";
 }
 
-char* copyFile(char *srcPath, char *destPath, char *permission) {
+char* copyFile(char *srcPath, char *destPath, char *permission, int clientSocket) {
     int permission_int = atoi(permission);
     if (permission_int / 10 == 3 && permission_int != 2) {
         return "You are patient, you can't copy a file!\n";
     }
     // 读取源文件
     char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
-    readFile(srcPath, content, permission);
-    // 创建目标文件
-    char* printWord = createFile(destPath, permission_int, content);
-    return printWord;
+    char* returnWord = readFile(srcPath, content, permission);
+    // 检查是否有权限读取
+    if (strcmp(returnWord, "File content: ") != 0) {
+        return "You don't have permission to read the file or the file do not exit!\n";
+    }
+    char file_permission_char[256];
+    sendMessage(clientSocket, "Input the file permission (File permission 11n means created by doctor and only doctors of group n (n == 0 means all groups) can access, 22 means created by admin and only admin can access, 21n means created by admin and only doctors of group n and admin can access, 13n means created by doctor and only patients and doctors of group n can access):\n");
+    receiveInput(clientSocket, file_permission_char, sizeof(file_permission_char));
+    int file_permission = atoi(file_permission_char);
+
+    if (file_permission/10 != 11 && file_permission != 22 && file_permission/10 != 21 && file_permission/10 != 13) {
+        sendMessage(clientSocket, "Invalid file permission!\n");
+        printf("file_permission: %d\n",file_permission);
+        return "Invalid file permission!\n";
+    }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) ){
+        sendMessage(clientSocket, "Invalid file permission!\n");
+        printf("file_permission: %d\n",file_permission);
+        printf("permission_int: %d\n",permission_int);
+        return "Invalid file permission!\n";
+    } else {
+        // 创建目标文件
+        char* printWord = createFile(destPath, file_permission, content);
+        return printWord;
+    };
 }
 
 char* moveFile(char *srcPath, char *destPath, char *permission) {

@@ -652,7 +652,12 @@ void *userFunction(void* arg) {
             }
             sendMessage(clientSocket, printWord);
             pthread_mutex_unlock(&fileLock[lockNum].lock);
-        }else{
+        }
+        else if (strcmp(cmd, "fp") == 0 && path != NULL) {
+            char* permission = findFilePermission(full_path);
+            sendMessage(clientSocket, permission);
+        }
+        else{
             sendMessage(clientSocket, "Invalid command!\n");
         }
     }

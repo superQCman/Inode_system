@@ -121,4 +121,7 @@ char* copyFile(char *srcPath, char *destPath, char *permission, int clientSocket
 // 移动文件
 char* moveFile(char *srcPath, char *destPath, char *permission);
 
+// 文件权限查找
+char* findFilePermission(char *path);
+
 #endif

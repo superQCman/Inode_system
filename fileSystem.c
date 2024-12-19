@@ -770,13 +770,13 @@ char* deleteFile(char *path, char *permission) {
         for (i = 0; i < ENTRY_NUMBER; i++) {
             if (strcmp(block->fileName[i], parent) == 0) {
                 int n_inode = block->inodeID[i];
-                if (inodeMem[n_inode].permission/100 == 2 && permission_int/10 == 1) {
-                    // printf("You don't have permission to delete the file!\n");
-                    pthread_mutex_unlock(&blockLock);  // 解锁
-                    return "You don't have permission to delete the file!\n";
-                }
+                // if (inodeMem[n_inode].permission/100 == 2 && permission_int/10 == 1) {
+                //     // printf("You don't have permission to delete the file!\n");
+                //     pthread_mutex_unlock(&blockLock);  // 解锁
+                //     return "You don't have permission to delete the file!\n";
+                // }
                 if (inodeMem[n_inode].fileType == 1) {
-                    if (permission_int/10 != inodeMem[n_inode].permission/100 || permission_int%10 != inodeMem[n_inode].permission%10){
+                    if ((permission_int/10 != inodeMem[n_inode].permission/100 && (inodeMem[n_inode].permission/10)%10 != permission_int/10  || inodeMem[n_inode].permission%10 != permission_int%10 && inodeMem[n_inode].permission%10 != 0) && permission_int != inodeMem[n_inode].permission/100){
                         // printf("You don't have permission to delete the file!\n");
                         pthread_mutex_unlock(&blockLock);  // 解锁
                         return "You don't have permission to delete the file!\n";
@@ -1599,4 +1599,53 @@ char* moveFile(char *srcPath, char *destPath, char *permission) {
     // 创建目标文件
     printWord = createFile(destPath, permission_int, content);
     return printWord;
+}
+
+// 文件权限查找函数
+char* findFilePermission(char *path) {
+    int i, flag;
+    char *directory, *parent;
+    const char delimiter[2] = "/";
+    struct Inode *pointer = inodeMem;
+    struct DirectoryBlock *block;
+
+    // 递归访问父目录
+    parent = NULL;
+    directory = strtok(path, delimiter);
+    if (directory == NULL) {
+        return "It is the root directory!\n";
+    }
+
+    while (directory != NULL) {
+        if (parent != NULL) {
+            block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+            flag = 0;
+            for (i = 0; i < ENTRY_NUMBER; i++) { 
+                if (strcmp(block->fileName[i], parent) == 0) {
+                    flag = 1;
+                    pointer = &inodeMem[block->inodeID[i]];
+                    break;
+                }
+            }
+            if (flag == 0 || pointer->fileType == 1) {
+                return "The path does not exist or is not a directory!\n";
+            }
+        }
+        parent = directory;
+        directory = strtok(NULL, delimiter);
+    }
+    // 返回文件权限
+    static char permission[256];
+    block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
+    for (i = 0; i < ENTRY_NUMBER; i++) {
+        if (strcmp(block->fileName[i], parent) == 0) {
+            int n_inode = block->inodeID[i];
+            if (inodeMem[n_inode].fileType == 1) {
+                sprintf(permission, "%d\n", inodeMem[n_inode].permission);
+                return permission;
+            } else {
+                return "The specified path is not a file!\n";
+            }
+        }
+    }
 }

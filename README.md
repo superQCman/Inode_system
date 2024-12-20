@@ -58,7 +58,7 @@ graph TD
    - **复制文件**：`cpfile <path>`
      - 示例：`cpfile /home/user/document.txt`
      - 后续输入：目标路径
-   - **移动文件**：`mvfile <path>`
+   - **移动文件/修改文件权限**：`mvfile <path>`
      - 示例：`mvfile /home/user/document.txt`
      - 后续输入：目标路径
    - **链接文件**：`ln <path>`
@@ -66,6 +66,8 @@ graph TD
      - 后续输入：要链接的文件路径
    - **切换目录**：`cd <path>`
      - 示例：`cd /home/user`
+   - **查看文件权限**：`filePermission <path>`
+     - 示例：`filePermission /home/user/document.txt`
 
 2. **用户管理**：
    - **创建用户**：`createUser`

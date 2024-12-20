@@ -128,10 +128,18 @@ void *userFunction(void* arg) {
                                "cpfile <srcPath> - Copy a file\n"
                                "renameFile <oldPath> - Rename a file\n"
                                "renameDirectory <oldPath> - Rename a directory\n"
+                               "mvfile <srcPath> - Move a file\n"
+                               "filePermission <path> - check file permission\n"
                                "Input your command:\n");
     while (running) {
         // saveFileSystem();
         // Prompt user for command input
+        // Try to check if socket is still connected
+        int test;
+        if ((test = recv(clientSocket, NULL, 1, MSG_PEEK | MSG_DONTWAIT)) == 0) {
+            running = 0;
+            continue;
+        }
         snprintf(command_word, sizeof(command_word), "- %s: %s$ ", user.username, current_path);
         sendMessage(clientSocket, command_word);
         
@@ -454,6 +462,7 @@ void *userFunction(void* arg) {
             if (strcmp(user.permission, "2") != 0) {
                 sendMessage(clientSocket, "You don't have permission to delete a new user!\n");
             }else{
+                saveFileSystem();
                 char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
                 readFile("/pwd", content, "2");
 
@@ -483,27 +492,41 @@ void *userFunction(void* arg) {
                         char *saveptr1;
 
                         char *doctor = strtok_r(doctor_name, delimiter_0, &saveptr1);
+                        int flag = 0;
                         while(doctor != NULL){
                             char Full_path[1024] = "/home/";
                             strcat(Full_path, doctor);
                             strcat(Full_path, "/");
                             strcat(Full_path, userName);
                             char* printWord = deleteDirectory(Full_path, user.permission);
+                            if(strcmp(printWord, "The directory is not empty!\n") == 0){
+                                // sendMessage(clientSocket, printWord);
+                                flag = 1;
+                                break;
+                            }
                             // printf("%s\n", printWord);
-                            sendMessage(clientSocket, printWord);
+                            // sendMessage(clientSocket, printWord);
                             doctor = strtok_r(NULL, delimiter_0, &saveptr1);
+                        }
+                        if(flag == 1){
+                            char* returnWord = loadFileSystem();
+                            // sendMessage(clientSocket, returnWord);
+                            sendMessage(clientSocket, "The user can not be deleted!\n");
+                            continue;
                         }
                     }
                 }
                 // char* printWord = delUser(userName);
                 // sendMessage(clientSocket, printWord);
                 char* delword = deleteDirectory(home, user.permission);
-                listFiles_main("/home");
+                // listFiles_main("/home");
                 if(strcmp(delword, "Directory deleted successfully!\n")==0){
                     char* printWord = delUser(userName);
                     sendMessage(clientSocket, printWord);
                 }else{
-                    sendMessage(clientSocket, "The user does not exist!\n");
+                    // sendMessage(clientSocket, delword);
+                    char* returnWord = loadFileSystem();
+                    sendMessage(clientSocket, "The user can not be deleted!\n");
                 }
                 // listFiles_main("/home");
             }
@@ -636,9 +659,13 @@ void *userFunction(void* arg) {
             sendMessage(clientSocket, "Input the path of the file you want to move:\n");
             char move_path[256];
             receiveInput(clientSocket, move_path, sizeof(move_path));
+            // 如果move_path为空，将full_path的值赋给move_path
+            if(strcmp(move_path, "")==0){
+                strcpy(move_path, full_path);
+            }
             char move_path_tmp[256];
             strcpy(move_path_tmp,move_path);
-            char* printWord = moveFile(full_path, move_path_tmp, user.permission);
+            char* printWord = moveFile(full_path, move_path_tmp, user.permission, clientSocket);
             // 如果复制成功，添加文件锁
             if(strcmp(printWord, "File created successfully!\n")==0){
                 fileLock[lockNum].lockNum = 0;
@@ -652,10 +679,15 @@ void *userFunction(void* arg) {
             }
             sendMessage(clientSocket, printWord);
             pthread_mutex_unlock(&fileLock[lockNum].lock);
-        }
-        else if (strcmp(cmd, "fp") == 0 && path != NULL) {
+        }else if (strcmp(cmd, "filePermission") == 0 && path != NULL) {
             char* permission = findFilePermission(full_path);
             sendMessage(clientSocket, permission);
+        }else if (strcmp(cmd, "backup") == 0 && user.permission[0] == '2') {
+            char* printWord = saveFileSystem();
+            sendMessage(clientSocket, printWord);
+        }else if (strcmp(cmd, "restore") == 0 && user.permission[0] == '2') {
+            char* printWord = loadFileSystem();
+            sendMessage(clientSocket, printWord);
         }
         else{
             sendMessage(clientSocket, "Invalid command!\n");

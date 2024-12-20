@@ -336,7 +336,7 @@ char* createDirectory(char *path, char *permission) {
             
             pthread_mutex_unlock(&bitmapLock);  // 解锁
             pthread_mutex_unlock(&blockLock);  // 解锁
-            saveFileSystem();
+            // saveFileSystem();
             return "Directory created successfully!\n";
             // printf("Directory created successfully!\n");
             
@@ -471,7 +471,7 @@ char* linkPath(char *path, char *path_origin, char *permission) {
     if(flag_origin == 0){
         return "The path does not exist!\n";
     }else{
-        saveFileSystem();
+        // saveFileSystem();
         return "Path linked successfully!\n";
     }
 }
@@ -571,7 +571,7 @@ char* deleteDirectory(char *path, char *permission) {
                     }
                     // printf("Directory deleted successfully!\n");
                     pthread_mutex_unlock(&blockLock);  // 解锁
-                    saveFileSystem();
+                    // saveFileSystem();
                     return "Directory deleted successfully!\n";
                 } else {
                     // printf("The specified path is not a directory!\n");
@@ -711,7 +711,7 @@ char* createFile(char *path, int file_permission, char* content) {
             }
             // printf("File created successfully!\n");
             pthread_mutex_unlock(&blockLock);  // 解锁
-            saveFileSystem();
+            // saveFileSystem();
             return "File created successfully!\n";
         } else {
             // printf("The directory is full!\n");
@@ -811,7 +811,7 @@ char* deleteFile(char *path, char *permission) {
                     
                     // printf("File deleted successfully!\n");
                     pthread_mutex_unlock(&blockLock);  // 解锁
-                    saveFileSystem();
+                    // saveFileSystem();
                     return "File deleted successfully!\n";
                 } else {
                     // printf("The specified path is not a file!\n");
@@ -1121,7 +1121,7 @@ char* writeFile(char *path, char *content, char *permission, int update) {
                 }
                 // printf("File content updated successfully!\n");
                 printf("Server: %d blocks were written!\n", inodeMem[n_inode].blockNum);
-                saveFileSystem();
+                // saveFileSystem();
                 return "File content updated successfully!\n";
             } else {
                 // printf("The specified path is not a file!\n");
@@ -1483,7 +1483,7 @@ char* renameFile(char *oldPath, char *newName, char *permission) {
                     return "You don't have permission to rename the file!\n";
                 }
                 strcpy(block->fileName[i], newName);
-                saveFileSystem();
+                // saveFileSystem();
                 return "File renamed successfully!\n";
             } else {
                 return "The specified path is not a file!\n";
@@ -1540,7 +1540,7 @@ char* renameDirectory(char *oldPath, char *newName, char *permission) {
                     return "You don't have permission to rename the directory!\n";
                 }
                 strcpy(block->fileName[i], newName);
-                saveFileSystem();
+                // saveFileSystem();
                 return "Directory renamed successfully!\n";
             } else {
                 return "The specified path is not a directory!\n";
@@ -1583,21 +1583,37 @@ char* copyFile(char *srcPath, char *destPath, char *permission, int clientSocket
     };
 }
 
-char* moveFile(char *srcPath, char *destPath, char *permission) {
+char* moveFile(char *srcPath, char *destPath, char *permission, int clientSocket) {
     int permission_int = atoi(permission);
     if (permission_int / 10 == 3 && permission_int != 2) {
         return "You are patient, you can't move a file!\n";
     }
     // 读取源文件
     char content[MAX_BLCK_NUMBER_PER_FILE*BLOCK_SIZE];
-    readFile(srcPath, content, permission);
+    char path_tmp[256];
+    strcpy(path_tmp, srcPath);
+    char *returnWord = readFile(srcPath, content, permission);
+    strcpy(srcPath, path_tmp);
+    // 检查是否有权限读取
+    if (strcmp(returnWord, "File content: ") != 0) {
+        return "You don't have permission to read the file or the file do not exit!\n";
+    }
+    char file_permission_char[256];
+    sendMessage(clientSocket, "Input the file permission (File permission 11n means created by doctor and only doctors of group n (n == 0 means all groups) can access, 22 means created by admin and only admin can access, 21n means created by admin and only doctors of group n and admin can access, 13n means created by doctor and only patients and doctors of group n can access):\n");
+    receiveInput(clientSocket, file_permission_char, sizeof(file_permission_char));
+    int file_permission = atoi(file_permission_char);
+    saveFileSystem();
     // 删除源文件
     char* printWord = deleteFile(srcPath, permission);
     if(strcmp(printWord, "File deleted successfully!\n") != 0){
+        loadFileSystem();
         return printWord;
     }
     // 创建目标文件
-    printWord = createFile(destPath, permission_int, content);
+    printWord = createFile(destPath, file_permission, content);
+    if(strcmp(printWord, "File created successfully!\n") != 0){
+        loadFileSystem();
+    }
     return printWord;
 }
 

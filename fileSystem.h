@@ -119,7 +119,7 @@ char* renameDirectory(char *oldPath, char *newName, char *permission);
 char* copyFile(char *srcPath, char *destPath, char *permission, int clientSocket);
 
 // 移动文件
-char* moveFile(char *srcPath, char *destPath, char *permission);
+char* moveFile(char *srcPath, char *destPath, char *permission, int clientSocket);
 
 // 文件权限查找
 char* findFilePermission(char *path);

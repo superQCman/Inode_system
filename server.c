@@ -130,6 +130,8 @@ void *userFunction(void* arg) {
                                "renameDirectory <oldPath> - Rename a directory\n"
                                "mvfile <srcPath> - Move a file\n"
                                "filePermission <path> - check file permission\n"
+                               "backup - Backup the file system\n"
+                               "restore - Restore the file system\n"
                                "Input your command:\n");
     while (running) {
         // saveFileSystem();

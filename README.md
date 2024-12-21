@@ -37,6 +37,7 @@ graph TD
      - 示例：`mkdir /home/user/new_folder`
    - **删除目录**：`rmdir <path>`
      - 示例：`rmdir /home/user/new_folder`
+     - 删除目录时，目录必须为空。
    - **列出目录内容**：`ls <path>`
      - 示例：`ls /home/user`
    - **创建文件**：`mkfile <path>`
@@ -49,6 +50,7 @@ graph TD
    - **写入文件**：`write <path>`
      - 示例：`write /home/user/document.txt`
      - 后续输入：新文件内容
+     - 每次只能有一个用户写入文件，其他用户只能读取文件。
    - **重命名文件**：`renameFile <path>`
      - 示例：`renameFile /home/user/document.txt`
      - 后续输入：新文件名
@@ -68,11 +70,18 @@ graph TD
      - 示例：`cd /home/user`
    - **查看文件权限**：`filePermission <path>`
      - 示例：`filePermission /home/user/document.txt`
+   - **备份文件系统**：`backup`
+     - 示例：`backup`
+   - **恢复文件系统**：`restore`
+      - 示例：`restore`
 
 2. **用户管理**：
    - **创建用户**：`createUser`
      - 示例：`createUser`
      - 后续输入：用户名、密码、权限
+     - 权限：1-管理员、2-医生、3-患者
+     - 创建医生或患者用户成功后，会自动创建与其相关的目录。
+     - 创建患者成功后，会在所在医生的目录下创建患者目录，该目录是链接到患者初始目录下的。
    - **删除用户**：`delUser <username>`
      - 示例：`delUser user123`
    - **切换用户**：`su <username>`

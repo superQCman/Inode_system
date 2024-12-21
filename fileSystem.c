@@ -50,10 +50,16 @@ void receiveInput(int clientSocket, char* buffer, size_t size) {
 // 将文件系统信息保存到硬盘
 char* saveFileSystem() {
     pthread_mutex_lock(&filesystemLock);  // 加锁
-
+    pthread_mutex_lock(&inodeLock);
+    pthread_mutex_lock(&blockLock);
+    pthread_mutex_lock(&bitmapLock);
     FILE *file = fopen("filesystem", "wb");
     if (file == NULL) {
         // printf("Error: Unable to save filesystem data.\n");
+        pthread_mutex_unlock(&bitmapLock);  // 解锁
+        pthread_mutex_unlock(&blockLock);  // 解锁
+        pthread_mutex_unlock(&inodeLock);  // 解锁
+        pthread_mutex_unlock(&filesystemLock);  // 解锁
         return "Error: Unable to save filesystem data.\n";
     }
     fwrite(inodeMem, sizeof(struct Inode), INODE_NUMBER, file);
@@ -62,7 +68,9 @@ char* saveFileSystem() {
     fwrite(fileLock, sizeof(struct FileLock), MAX_FILE, file);
     fclose(file);
     // printf("Filesystem data saved successfully.\n");
-
+    pthread_mutex_unlock(&bitmapLock);  // 解锁
+    pthread_mutex_unlock(&blockLock);  // 解锁
+    pthread_mutex_unlock(&inodeLock);  // 解锁
     pthread_mutex_unlock(&filesystemLock);  // 解锁
     return "Filesystem data saved successfully.\n";
 }
@@ -70,7 +78,9 @@ char* saveFileSystem() {
 // 从硬盘读取文件系统信息
 char* loadFileSystem() {
     pthread_mutex_lock(&filesystemLock_r);  // 加锁
-
+    pthread_mutex_lock(&inodeLock);  // 加锁
+    pthread_mutex_lock(&blockLock);  // 加锁
+    pthread_mutex_lock(&bitmapLock);  // 加锁
     if(filesystemLock_count == 0){
         pthread_mutex_lock(&filesystemLock);
     }
@@ -83,6 +93,9 @@ char* loadFileSystem() {
         if(filesystemLock_count == 0){
             pthread_mutex_unlock(&filesystemLock);
         }
+        pthread_mutex_unlock(&bitmapLock);  // 解锁
+        pthread_mutex_unlock(&blockLock);  // 解锁
+        pthread_mutex_unlock(&inodeLock);  // 解锁
         return "Error: Unable to load filesystem data.\n";
     }
     fread(inodeMem, sizeof(struct Inode), INODE_NUMBER, file);
@@ -96,6 +109,9 @@ char* loadFileSystem() {
     if(filesystemLock_count == 0){
         pthread_mutex_unlock(&filesystemLock);
     }
+    pthread_mutex_unlock(&bitmapLock);  // 解锁
+    pthread_mutex_unlock(&blockLock);  // 解锁
+    pthread_mutex_unlock(&inodeLock);  // 解锁
     return "Filesystem data loaded successfully.\n";
 }
 
@@ -1190,15 +1206,17 @@ void listFiles(char *path, int clientSocket) {
 
     block = (struct DirectoryBlock *) &blockMem[pointer->blockID[0]];
     printf("INode\tisDir\tFile Name\n");
-    sendMessage(clientSocket, "INode\tisDir\tFile Name\n");
+    // sendMessage(clientSocket, "INode\tisDir\tFile Name\n");
+    char allFiles[4096] = "INode\tisDir\tFile Name\n";  // Buffer to store all file entries
     for (i = 0; i < ENTRY_NUMBER; i++) {
         if (block->inodeID[i] != -1) {
             printf("%d\t%d\t%s\n", block->inodeID[i], 1-inodeMem[block->inodeID[i]].fileType, block->fileName[i]);
-            char message[256];
-            sprintf(message, "%d\t%d\t%s\n", block->inodeID[i], 1-inodeMem[block->inodeID[i]].fileType, block->fileName[i]);
-            sendMessage(clientSocket, message);
+            char entry[256];
+            sprintf(entry, "%d\t%d\t%s\n", block->inodeID[i], 1-inodeMem[block->inodeID[i]].fileType, block->fileName[i]);
+            strcat(allFiles, entry);
         }
     }
+    sendMessage(clientSocket, allFiles);  // Send all file entries at once
     inodeLock_count--;
     blockLock_count--;
     if(inodeLock_count == 0){

@@ -329,7 +329,7 @@ void *userFunction(void* arg) {
                 char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
                 readFile("/pwd", content, "2");
 
-                char newUserName[256], newPassword[256], userName[256]="admin";
+                char newUserName[MAX_FILENAME_LENGTH-2], newPassword[256], userName[256]="admin";
                 strcpy(newUserName, path);
                 sendMessage(clientSocket, "Input the new password:");
                 receiveInput(clientSocket, newPassword, sizeof(newPassword));
@@ -513,7 +513,7 @@ void *userFunction(void* arg) {
                         if(flag == 1){
                             char* returnWord = loadFileSystem();
                             // sendMessage(clientSocket, returnWord);
-                            sendMessage(clientSocket, "The user can not be deleted!\n");
+                            sendMessage(clientSocket, "The user can not be deleted!(You need to delete patient under this doctor)\n");
                             continue;
                         }
                     }
@@ -528,7 +528,7 @@ void *userFunction(void* arg) {
                 }else{
                     // sendMessage(clientSocket, delword);
                     char* returnWord = loadFileSystem();
-                    sendMessage(clientSocket, "The user can not be deleted!\n");
+                    sendMessage(clientSocket, "The user can not be deleted!(The directory is not empty!)\n");
                 }
                 // listFiles_main("/home");
             }

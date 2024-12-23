@@ -213,7 +213,7 @@ void *userFunction(void* arg) {
                 sendMessage(clientSocket, "Invalid file permission!\n");
                 printf("file_permission: %d\n",file_permission);
                 continue;
-            }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) ){
+            }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) || (permission_int == 2 && file_permission/100 !=2 && file_permission/10!=2)){
                 sendMessage(clientSocket, "Invalid file permission!\n");
                 printf("file_permission: %d\n",file_permission);
                 printf("permission_int: %d\n",permission_int);
@@ -546,6 +546,12 @@ void *userFunction(void* arg) {
             sendMessage(clientSocket, "Input the path of the file you want to link:\n");
             char link_path[256];
             receiveInput(clientSocket, link_path, sizeof(link_path));
+            char content[MAX_BLCK_NUMBER_PER_FILE * BLOCK_SIZE];
+            char* read = readFile(full_path, content, user.permission);
+            if(strcmp(read, "File content: ") != 0){
+                sendMessage(clientSocket, read);
+                continue;
+            }
             char* printWord = linkPath(full_path, link_path, user.permission);
             sendMessage(clientSocket, printWord);
         }else if (strcmp(cmd, "group") == 0) {

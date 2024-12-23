@@ -72,8 +72,10 @@ graph TD
      - 示例：`filePermission /home/user/document.txt`
    - **备份文件系统**：`backup`
      - 示例：`backup`
+     - 只有管理员用户可以备份文件系统。
    - **恢复文件系统**：`restore`
       - 示例：`restore`
+      - 只有管理员用户可以恢复文件系统。
 
 2. **用户管理**：
    - **创建用户**：`createUser`

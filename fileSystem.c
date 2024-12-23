@@ -792,7 +792,7 @@ char* deleteFile(char *path, char *permission) {
                 //     return "You don't have permission to delete the file!\n";
                 // }
                 if (inodeMem[n_inode].fileType == 1) {
-                    if ((permission_int/10 != inodeMem[n_inode].permission/100 && (inodeMem[n_inode].permission/10)%10 != permission_int/10  || inodeMem[n_inode].permission%10 != permission_int%10 && inodeMem[n_inode].permission%10 != 0) && permission_int != inodeMem[n_inode].permission/100){
+                    if ((permission_int/10 != inodeMem[n_inode].permission/100  || inodeMem[n_inode].permission%10 != permission_int%10 && inodeMem[n_inode].permission%10 != 0) && permission_int != inodeMem[n_inode].permission/100){
                         // printf("You don't have permission to delete the file!\n");
                         pthread_mutex_unlock(&blockLock);  // 解锁
                         return "You don't have permission to delete the file!\n";
@@ -1584,6 +1584,14 @@ char* copyFile(char *srcPath, char *destPath, char *permission, int clientSocket
     sendMessage(clientSocket, "Input the file permission (File permission 11n means created by doctor and only doctors of group n (n == 0 means all groups) can access, 22 means created by admin and only admin can access, 21n means created by admin and only doctors of group n and admin can access, 13n means created by doctor and only patients and doctors of group n can access):\n");
     receiveInput(clientSocket, file_permission_char, sizeof(file_permission_char));
     int file_permission = atoi(file_permission_char);
+    if(permission_int/10 == 3){
+        return "You are patient, you can't move a file!\n";
+    }
+    if (file_permission/10 != 11 && file_permission != 22 && file_permission/10 != 21 && file_permission/10 != 13) {
+        return "Invalid file permission!\n";
+    }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) || (permission_int == 2 && file_permission/100 !=2 && file_permission/10!=2) ){
+        return "Invalid file permission!\n";
+    }
 
     if (file_permission/10 != 11 && file_permission != 22 && file_permission/10 != 21 && file_permission/10 != 13) {
         sendMessage(clientSocket, "Invalid file permission!\n");
@@ -1620,6 +1628,14 @@ char* moveFile(char *srcPath, char *destPath, char *permission, int clientSocket
     sendMessage(clientSocket, "Input the file permission (File permission 11n means created by doctor and only doctors of group n (n == 0 means all groups) can access, 22 means created by admin and only admin can access, 21n means created by admin and only doctors of group n and admin can access, 13n means created by doctor and only patients and doctors of group n can access):\n");
     receiveInput(clientSocket, file_permission_char, sizeof(file_permission_char));
     int file_permission = atoi(file_permission_char);
+    if(permission_int/10 == 3){
+        return "You are patient, you can't move a file!\n";
+    }
+    if (file_permission/10 != 11 && file_permission != 22 && file_permission/10 != 21 && file_permission/10 != 13) {
+        return "Invalid file permission!\n";
+    }else if((file_permission/100 != permission_int/10 && permission_int != 2) || (file_permission%10 != permission_int%10 && permission_int != 2) || (permission_int == 2 && file_permission/100 !=2 && file_permission/10!=2) ){
+        return "Invalid file permission!\n";
+    }
     saveFileSystem();
     // 删除源文件
     char* printWord = deleteFile(srcPath, permission);
